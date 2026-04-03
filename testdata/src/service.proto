@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package example.api;
+
+message User {
+    string name = 1;
+    int32 age = 2;
+    repeated string tags = 3;
+    optional bool active = 4;
+}
+
+message GetUserRequest {
+    string id = 1;
+}
+
+service UserService {
+    rpc GetUser(GetUserRequest) returns (User);
+}

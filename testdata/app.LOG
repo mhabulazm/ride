@@ -1,0 +1,8 @@
+2024-01-15 10:23:45 INFO  Application started
+2024-01-15 10:23:46 DEBUG Loading configuration from /etc/app/config.yaml
+2024-01-15 10:23:47 INFO  Connected to database
+2024-01-15 10:23:48 WARN  Connection pool running low: 2/10 available
+2024-01-15 10:24:01 ERROR Failed to process request: timeout after 30s
+2024-01-15 10:24:02 ERROR Stack trace: NullPointerException at line 42
+2024-01-15 10:24:05 INFO  Retrying connection...
+2024-01-15 10:24:06 INFO  Connection restored

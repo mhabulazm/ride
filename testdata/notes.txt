@@ -1,0 +1,11 @@
+Project Notes
+=============
+
+TODO:
+- Fix the login bug
+- Add unit tests for the parser
+- Update documentation
+
+Meeting notes from 2024-01-15:
+  Discussed migration to new API
+  Timeline: 2 weeks
