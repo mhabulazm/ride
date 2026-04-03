@@ -1,6 +1,9 @@
 use crate::app::App;
 use crate::ui_editor::render_editor;
 use crate::ui_explorer::render_explorer;
+use crate::ui_fuzzy::render_fuzzy;
+use crate::ui_goto::render_goto_line;
+use ride_core::command::FocusPane;
 use crate::ui_search::render_search;
 use crate::ui_status::render_status;
 use crate::ui_tabs::render_tabs;
@@ -57,4 +60,14 @@ pub fn render(frame: &mut Frame, app: &mut App) {
 
     // Status bar
     render_status(frame, vertical_chunks[status_idx], app);
+
+    // Fuzzy finder overlay
+    if app.fuzzy.active {
+        render_fuzzy(frame, content_area, app);
+    }
+
+    // Go-to-line overlay
+    if app.focus == FocusPane::GoToLine {
+        render_goto_line(frame, content_area, app);
+    }
 }

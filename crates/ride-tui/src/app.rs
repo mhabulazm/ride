@@ -1,10 +1,14 @@
 use ride_core::command::{Command, FocusPane};
 use ride_core::explorer::Explorer;
+use ride_core::fuzzy::FuzzyFinder;
 use ride_core::highlight::{self, HighlighterType};
-use ride_core::keymap;
+use ride_core::keymap::{self, KeymapConfig};
+use ride_core::lsp::LspManager;
 use ride_core::search::SearchState;
+use ride_core::settings::Settings;
 use ride_core::tab::TabManager;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 pub struct App {
     pub tabs: TabManager,
@@ -16,6 +20,14 @@ pub struct App {
     pub viewport_height: usize,
     pub working_dir: PathBuf,
     pub highlighter_types: Vec<HighlighterType>,
+    pub keymap: KeymapConfig,
+    pub fuzzy: FuzzyFinder,
+    pub goto_line_input: String,
+    pub settings: Settings,
+    pub last_autosave: Instant,
+    pub lsp: LspManager,
+    pub hover_display: Option<String>,
+    doc_versions: std::collections::HashMap<PathBuf, i32>,
 }
 
 impl App {
@@ -28,6 +40,10 @@ impl App {
         };
 
         let explorer = Explorer::new(&working_dir);
+        let keymap = KeymapConfig::load(&working_dir);
+        let fuzzy = FuzzyFinder::new(&working_dir);
+        let settings = Settings::load(&working_dir);
+        let lsp = LspManager::new(settings.lsp.clone(), &working_dir);
         let mut app = Self {
             tabs: TabManager::new(),
             explorer,
@@ -38,6 +54,14 @@ impl App {
             viewport_height: 24,
             working_dir,
             highlighter_types: Vec::new(),
+            keymap,
+            fuzzy,
+            goto_line_input: String::new(),
+            settings,
+            last_autosave: Instant::now(),
+            lsp,
+            hover_display: None,
+            doc_versions: std::collections::HashMap::new(),
         };
 
         if let Some(file) = initial_file {
@@ -58,6 +82,14 @@ impl App {
                 self.highlighter_types[self.tabs.active] = hl_type;
                 self.focus = FocusPane::Editor;
                 self.status_message = format!("Opened {}", path.display());
+                // Notify LSP
+                if self.lsp.has_server_for(path) {
+                    if let Some(buf) = self.tabs.active_buffer() {
+                        let text = buf.rope.to_string();
+                        self.lsp.did_open(path, &text);
+                        self.doc_versions.insert(path.to_path_buf(), 1);
+                    }
+                }
             }
             Err(e) => {
                 self.status_message = format!("Error: {}", e);
@@ -95,6 +127,16 @@ impl App {
             Command::MoveRight => {
                 if let Some(buf) = self.tabs.active_buffer_mut() {
                     buf.move_right();
+                }
+            }
+            Command::MoveWordLeft => {
+                if let Some(buf) = self.tabs.active_buffer_mut() {
+                    buf.move_word_left();
+                }
+            }
+            Command::MoveWordRight => {
+                if let Some(buf) = self.tabs.active_buffer_mut() {
+                    buf.move_word_right();
                 }
             }
             Command::MoveToLineStart => {
@@ -160,8 +202,14 @@ impl App {
             // File
             Command::Save => {
                 if let Some(buf) = self.tabs.active_buffer_mut() {
+                    let path = buf.file_path.clone();
                     match buf.save() {
-                        Ok(()) => self.status_message = "Saved.".to_string(),
+                        Ok(()) => {
+                            self.status_message = "Saved.".to_string();
+                            if let Some(ref p) = path {
+                                self.lsp.did_save(p);
+                            }
+                        }
                         Err(e) => self.status_message = format!("Save error: {}", e),
                     }
                 }
@@ -257,6 +305,80 @@ impl App {
                 self.search.active = false;
                 self.focus = FocusPane::Editor;
             }
+
+            // Fuzzy finder
+            Command::FuzzyOpen => {
+                self.fuzzy.open();
+                self.focus = FocusPane::FuzzyFinder;
+            }
+            Command::FuzzyInput(c) => {
+                self.fuzzy.input(c);
+            }
+            Command::FuzzyBackspace => {
+                self.fuzzy.backspace();
+            }
+            Command::FuzzyUp => {
+                self.fuzzy.move_up();
+            }
+            Command::FuzzyDown => {
+                self.fuzzy.move_down();
+            }
+            Command::FuzzyConfirm => {
+                if let Some(path) = self.fuzzy.confirm() {
+                    self.fuzzy.close();
+                    self.open_file(&path);
+                    self.focus = FocusPane::Editor;
+                }
+            }
+            Command::FuzzyClose => {
+                self.fuzzy.close();
+                self.focus = FocusPane::Editor;
+            }
+
+            // Go to line
+            Command::GoToLineOpen => {
+                self.goto_line_input.clear();
+                self.focus = FocusPane::GoToLine;
+            }
+            Command::GoToLineInput(c) => {
+                self.goto_line_input.push(c);
+            }
+            Command::GoToLineBackspace => {
+                self.goto_line_input.pop();
+            }
+            Command::GoToLineConfirm => {
+                if let Ok(line_num) = self.goto_line_input.parse::<usize>() {
+                    if let Some(buf) = self.tabs.active_buffer_mut() {
+                        buf.go_to_line(line_num);
+                    }
+                }
+                self.goto_line_input.clear();
+                self.focus = FocusPane::Editor;
+            }
+            Command::GoToLineClose => {
+                self.goto_line_input.clear();
+                self.focus = FocusPane::Editor;
+            }
+
+            // LSP
+            Command::LspHover => {
+                if let Some(buf) = self.tabs.active_buffer() {
+                    if let Some(ref path) = buf.file_path.clone() {
+                        let row = buf.cursor_row as u32;
+                        let col = buf.cursor_col as u32;
+                        self.lsp.request_hover(path, row, col);
+                    }
+                }
+            }
+            Command::LspGotoDefinition => {
+                if let Some(buf) = self.tabs.active_buffer() {
+                    if let Some(ref path) = buf.file_path.clone() {
+                        let row = buf.cursor_row as u32;
+                        let col = buf.cursor_col as u32;
+                        self.lsp.request_goto_definition(path, row, col);
+                    }
+                }
+            }
         }
     }
 
@@ -291,8 +413,70 @@ impl App {
 
     pub fn handle_key(&mut self, event: crossterm::event::KeyEvent) {
         let key = convert_key_event(event);
-        let cmd = keymap::map_key(key, self.focus);
+        let cmd = self.keymap.map_key(key, self.focus);
         self.handle_command(cmd);
+    }
+
+    pub fn tick_lsp(&mut self) {
+        self.lsp.poll();
+
+        // Handle hover result
+        if let Some(ref info) = self.lsp.hover_info {
+            if !info.is_empty() {
+                self.hover_display = Some(info.clone());
+            } else {
+                self.hover_display = None;
+            }
+            self.lsp.hover_info = None;
+        }
+
+        // Handle goto definition result
+        if let Some((file, line, col)) = self.lsp.pending_goto.take() {
+            self.open_file(&file);
+            if let Some(buf) = self.tabs.active_buffer_mut() {
+                buf.cursor_row = line;
+                buf.cursor_col = col;
+            }
+        }
+
+        // Send didChange for dirty buffers
+        for tab in &self.tabs.tabs {
+            if tab.dirty {
+                if let Some(ref path) = tab.file_path {
+                    if self.lsp.has_server_for(path) {
+                        let version = self
+                            .doc_versions
+                            .entry(path.clone())
+                            .or_insert(1);
+                        *version += 1;
+                        let v = *version;
+                        let text = tab.rope.to_string();
+                        self.lsp.did_change(path, v, &text);
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn tick_autosave(&mut self) {
+        if self.settings.autosave_interval_secs == 0 {
+            return;
+        }
+        let elapsed = self.last_autosave.elapsed().as_secs();
+        if elapsed >= self.settings.autosave_interval_secs {
+            let mut saved = Vec::new();
+            for tab in &mut self.tabs.tabs {
+                if tab.dirty && tab.file_path.is_some() {
+                    if tab.save().is_ok() {
+                        saved.push(tab.file_name());
+                    }
+                }
+            }
+            if !saved.is_empty() {
+                self.status_message = format!("Autosaved: {}", saved.join(", "));
+            }
+            self.last_autosave = Instant::now();
+        }
     }
 }
 

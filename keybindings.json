@@ -1,0 +1,65 @@
+{
+  "editor": [
+    { "key": "ctrl+s", "command": "Save" },
+    { "key": "ctrl+q", "command": "Quit" },
+    { "key": "ctrl+w", "command": "CloseTab" },
+    { "key": "ctrl+b", "command": "ToggleExplorer" },
+    { "key": "ctrl+p", "command": "FuzzyOpen" },
+    { "key": "ctrl+f", "command": "SearchInFile" },
+    { "key": "ctrl+z", "command": "Undo" },
+    { "key": "ctrl+shift+f", "command": "SearchAcrossFiles" },
+    { "key": "ctrl+g", "command": "GoToLineOpen" },
+    { "key": "ctrl+h", "command": "LspHover" },
+    { "key": "ctrl+d", "command": "LspGotoDefinition" },
+    { "key": "ctrl+left", "command": "MoveWordLeft" },
+    { "key": "ctrl+right", "command": "MoveWordRight" },
+    { "key": "ctrl+pagedown", "command": "NextTab" },
+    { "key": "ctrl+pageup", "command": "PrevTab" },
+    { "key": "alt+left", "command": "PrevTab" },
+    { "key": "alt+right", "command": "NextTab" },
+    { "key": "ctrl+home", "command": "MoveToFileStart" },
+    { "key": "ctrl+end", "command": "MoveToFileEnd" },
+    { "key": "up", "command": "MoveUp" },
+    { "key": "down", "command": "MoveDown" },
+    { "key": "left", "command": "MoveLeft" },
+    { "key": "right", "command": "MoveRight" },
+    { "key": "home", "command": "MoveToLineStart" },
+    { "key": "end", "command": "MoveToLineEnd" },
+    { "key": "pageup", "command": "PageUp" },
+    { "key": "pagedown", "command": "PageDown" },
+    { "key": "enter", "command": "InsertNewline" },
+    { "key": "backspace", "command": "DeleteBack" },
+    { "key": "delete", "command": "DeleteForward" }
+  ],
+  "explorer": [
+    { "key": "ctrl+q", "command": "Quit" },
+    { "key": "ctrl+b", "command": "ToggleExplorer" },
+    { "key": "ctrl+f", "command": "SearchInFile" },
+    { "key": "ctrl+shift+f", "command": "SearchAcrossFiles" },
+    { "key": "up", "command": "ExplorerUp" },
+    { "key": "down", "command": "ExplorerDown" },
+    { "key": "enter", "command": "ExplorerEnter" },
+    { "key": "tab", "command": "FocusEditor" },
+    { "key": "esc", "command": "FocusEditor" }
+  ],
+  "search": [
+    { "key": "esc", "command": "SearchClose" },
+    { "key": "enter", "command": "SearchNext" },
+    { "key": "ctrl+n", "command": "SearchNext" },
+    { "key": "ctrl+p", "command": "SearchPrev" },
+    { "key": "backspace", "command": "SearchBackspace" }
+  ],
+  "fuzzy": [
+    { "key": "esc", "command": "FuzzyClose" },
+    { "key": "enter", "command": "FuzzyConfirm" },
+    { "key": "up", "command": "FuzzyUp" },
+    { "key": "down", "command": "FuzzyDown" },
+    { "key": "ctrl+p", "command": "FuzzyClose" },
+    { "key": "backspace", "command": "FuzzyBackspace" }
+  ],
+  "goto_line": [
+    { "key": "esc", "command": "GoToLineClose" },
+    { "key": "enter", "command": "GoToLineConfirm" },
+    { "key": "backspace", "command": "GoToLineBackspace" }
+  ]
+}

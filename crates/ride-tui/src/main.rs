@@ -2,6 +2,8 @@ mod app;
 mod ui;
 mod ui_editor;
 mod ui_explorer;
+mod ui_fuzzy;
+mod ui_goto;
 mod ui_search;
 mod ui_status;
 mod ui_tabs;
@@ -50,6 +52,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         }
+
+        app.tick_autosave();
+        app.tick_lsp();
     }
 
     // Restore terminal

@@ -131,3 +131,87 @@ impl SearchState {
         self.matches.get(self.current)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_search_empty_query() {
+        let mut state = SearchState::new();
+        let lines = vec!["hello".to_string(), "world".to_string()];
+        state.search_in_buffer(&lines);
+        assert!(state.matches.is_empty());
+    }
+
+    #[test]
+    fn test_search_finds_matches() {
+        let mut state = SearchState::new();
+        state.query = "lo".to_string();
+        let lines = vec!["hello".to_string(), "world".to_string()];
+        state.search_in_buffer(&lines);
+        assert_eq!(state.matches.len(), 1);
+        assert_eq!(state.matches[0].line, 0);
+        assert_eq!(state.matches[0].col, 3);
+    }
+
+    #[test]
+    fn test_search_case_insensitive() {
+        let mut state = SearchState::new();
+        state.query = "HELLO".to_string();
+        state.case_insensitive = true;
+        let lines = vec!["Hello World".to_string()];
+        state.search_in_buffer(&lines);
+        assert_eq!(state.matches.len(), 1);
+    }
+
+    #[test]
+    fn test_search_multiple_matches_per_line() {
+        let mut state = SearchState::new();
+        state.query = "ab".to_string();
+        let lines = vec!["ab cd ab ef ab".to_string()];
+        state.search_in_buffer(&lines);
+        assert_eq!(state.matches.len(), 3);
+    }
+
+    #[test]
+    fn test_next_prev_match() {
+        let mut state = SearchState::new();
+        state.query = "a".to_string();
+        let lines = vec!["a b a c a".to_string()];
+        state.search_in_buffer(&lines);
+        assert_eq!(state.matches.len(), 3);
+        assert_eq!(state.current, 0);
+        state.next_match();
+        assert_eq!(state.current, 1);
+        state.next_match();
+        assert_eq!(state.current, 2);
+        state.next_match();
+        assert_eq!(state.current, 0); // wraps
+        state.prev_match();
+        assert_eq!(state.current, 2); // wraps back
+    }
+
+    #[test]
+    fn test_search_across_files() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("test.txt"), "hello world\nfoo bar").unwrap();
+        std::fs::write(dir.path().join("other.txt"), "hello again").unwrap();
+
+        let mut state = SearchState::new();
+        state.query = "hello".to_string();
+        state.search_across_files(dir.path());
+        assert_eq!(state.matches.len(), 2);
+        assert!(state.matches.iter().all(|m| m.file.is_some()));
+    }
+
+    #[test]
+    fn test_search_no_results() {
+        let mut state = SearchState::new();
+        state.query = "xyz".to_string();
+        let lines = vec!["hello".to_string()];
+        state.search_in_buffer(&lines);
+        assert!(state.matches.is_empty());
+        assert!(state.current_match().is_none());
+    }
+}

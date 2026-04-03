@@ -1,7 +1,10 @@
 pub mod buffer;
 pub mod command;
 pub mod explorer;
+pub mod fuzzy;
 pub mod highlight;
 pub mod keymap;
+pub mod lsp;
 pub mod search;
+pub mod settings;
 pub mod tab;

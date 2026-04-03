@@ -1,0 +1,25 @@
+{
+  "autosave_interval_secs": 300,
+  "lsp": {
+    "rs": {
+      "command": "rust-analyzer",
+      "args": []
+    },
+    "java": {
+      "command": "jdtls",
+      "args": []
+    },
+    "py": {
+      "command": "pylsp",
+      "args": []
+    },
+    "ts": {
+      "command": "typescript-language-server",
+      "args": ["--stdio"]
+    },
+    "go": {
+      "command": "gopls",
+      "args": []
+    }
+  }
+}

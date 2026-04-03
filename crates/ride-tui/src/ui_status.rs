@@ -27,6 +27,32 @@ pub fn render_status(frame: &mut Frame, area: Rect, app: &App) {
         ));
     }
 
+    // Show diagnostic at cursor line
+    if let Some(buf) = app.tabs.active_buffer() {
+        if let Some(ref path) = buf.file_path {
+            let diags = app.lsp.get_diagnostics_for_line(path, buf.cursor_row);
+            if let Some(d) = diags.first() {
+                let color = match d.severity {
+                    ride_core::lsp::DiagnosticSeverity::Error => Color::Red,
+                    ride_core::lsp::DiagnosticSeverity::Warning => Color::Yellow,
+                    _ => Color::Cyan,
+                };
+                spans.push(Span::styled(
+                    format!("  {} ", d.message),
+                    Style::default().fg(color),
+                ));
+            }
+        }
+    }
+
+    // Show hover info if available
+    if let Some(ref hover) = app.hover_display {
+        spans.push(Span::styled(
+            format!("  {} ", hover.lines().next().unwrap_or("")),
+            Style::default().fg(Color::Cyan),
+        ));
+    }
+
     if !app.status_message.is_empty() {
         spans.push(Span::styled(
             format!("  {} ", &app.status_message),
