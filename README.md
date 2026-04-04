@@ -4,13 +4,22 @@ A minimalist, fast, terminal-based IDE built in Rust.
 
 ## Supported File Types
 
-- `.java` — Java (tree-sitter highlighting)
-- `.kt` — Kotlin (regex highlighting)
-- `.md` — Markdown (tree-sitter highlighting)
-- `.proto` — Protocol Buffers (regex highlighting)
-- `.LOG` — Log files (level-aware coloring)
-- `.mmd` — Mermaid diagrams (keyword highlighting)
-- `.txt` — Plain text
+| Extension | Language | Highlighting |
+|-----------|----------|-------------|
+| `.rs` | Rust | tree-sitter |
+| `.py` | Python | tree-sitter |
+| `.ts`, `.tsx` | TypeScript | tree-sitter |
+| `.js`, `.jsx` | JavaScript | tree-sitter |
+| `.go` | Go | tree-sitter |
+| `.c`, `.h` | C | tree-sitter |
+| `.cpp`, `.cc`, `.hpp`, `.cxx`, `.hxx` | C++ | tree-sitter |
+| `.java` | Java | tree-sitter |
+| `.md` | Markdown | tree-sitter |
+| `.kt` | Kotlin | regex |
+| `.proto` | Protocol Buffers | regex |
+| `.log` | Log files | regex (level-aware) |
+| `.mmd` | Mermaid diagrams | regex |
+| `.txt` | Plain text | none |
 
 ## Installation
 
@@ -43,6 +52,9 @@ ride ./src/App.java
 | Ctrl+G | Go to line |
 | Ctrl+H | LSP hover info |
 | Ctrl+D | LSP go to definition |
+| Ctrl+Space | LSP autocomplete |
+| Ctrl+[ | Toggle fold at cursor |
+| Ctrl+] | Unfold all |
 | Ctrl+Left/Right | Word-wise cursor movement |
 | Ctrl+PageDown / Alt+Right | Next tab |
 | Ctrl+PageUp / Alt+Left | Previous tab |
@@ -52,11 +64,11 @@ ride ./src/App.java
 | Arrow keys | Move cursor |
 | Home/End | Start/end of line |
 | Page Up/Down | Scroll |
-| Enter | New line / open file in explorer |
+| Enter | New line (with auto-indent) |
 | Esc | Close search / fuzzy finder / back to editor |
 | Tab (in explorer) | Switch focus to editor |
 
-Keybindings are configurable via `keybindings.json` in the working directory. See the included file for the default bindings and format.
+All keybindings are shown on the welcome screen when no file is open. Keybindings are configurable via `keybindings.json` in the working directory.
 
 ## Features
 
@@ -65,13 +77,20 @@ Keybindings are configurable via `keybindings.json` in the working directory. Se
 - Fuzzy file finder (Ctrl+P) with scoring for consecutive and word-boundary matches
 - Go-to-line dialog (Ctrl+G)
 - Word-wise cursor movement (Ctrl+Left/Right)
+- Auto-indent on newline (carries over leading whitespace)
 - Bracket matching and highlighting for `()`, `{}`, `[]`
+- Soft line wrapping (long lines wrap visually instead of horizontal scrolling)
+- Code folding based on tree-sitter syntax tree (functions, classes, blocks, comments)
+- Scope-aware syntax highlighting (method names, types, variables, annotations classified by context)
 - In-file and cross-file search (case-insensitive)
-- Syntax highlighting via tree-sitter (Java, Markdown) and regex (Kotlin, Protobuf, LOG, Mermaid)
+- Syntax highlighting via tree-sitter (Rust, Python, TypeScript, JavaScript, Go, C, C++, Java, Markdown) with regex fallback (Kotlin, Protobuf, LOG, Mermaid)
 - Configurable keybindings via JSON
 - Configurable autosave (default: 5 minutes, set via `settings.json`)
 - Large file support (streaming read/write via ropey)
-- LSP client with diagnostics, hover, and go-to-definition
+- LSP client with diagnostics, hover, go-to-definition, and autocomplete
+- Diagnostics gutter with severity indicators (● error, ▲ warning, ℹ info) and underline on affected ranges
+- LSP autocomplete with popup menu (Ctrl+Space or auto-triggered on `.`/`:`)
+- Welcome screen with keybinding reference
 - Undo support
 
 ## Configuration
@@ -111,4 +130,4 @@ The core is decoupled from the UI, allowing a future GUI frontend (e.g. egui/ice
 cargo test
 ```
 
-104 unit tests covering buffer operations, word movement, bracket matching, tab management, keymap parsing and loading, search, fuzzy finder, settings, and LSP message parsing.
+117 unit tests covering buffer operations, auto-indent, word movement, bracket matching, code folding, tab management, keymap parsing and loading, search, fuzzy finder, settings, and LSP message parsing.

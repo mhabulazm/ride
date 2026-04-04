@@ -91,10 +91,22 @@ impl Buffer {
 
     pub fn insert_newline(&mut self) {
         self.save_undo();
+        // Capture leading whitespace from current line for auto-indent
+        let indent = self
+            .get_line(self.cursor_row)
+            .map(|line| {
+                line.chars()
+                    .take_while(|c| *c == ' ' || *c == '\t')
+                    .collect::<String>()
+            })
+            .unwrap_or_default();
+
         let idx = self.char_index_at_cursor();
-        self.rope.insert_char(idx, '\n');
+        let mut insert_text = String::from('\n');
+        insert_text.push_str(&indent);
+        self.rope.insert(idx, &insert_text);
         self.cursor_row += 1;
-        self.cursor_col = 0;
+        self.cursor_col = indent.len();
         self.dirty = true;
     }
 
@@ -409,6 +421,35 @@ mod tests {
         assert_eq!(buf.get_line(1).unwrap(), "lo");
         assert_eq!(buf.cursor_row, 1);
         assert_eq!(buf.cursor_col, 0);
+    }
+
+    #[test]
+    fn test_insert_newline_auto_indent_spaces() {
+        let mut buf = buf_from("    hello");
+        buf.cursor_col = 9;
+        buf.insert_newline();
+        assert_eq!(buf.get_line(1).unwrap(), "    ");
+        assert_eq!(buf.cursor_row, 1);
+        assert_eq!(buf.cursor_col, 4);
+    }
+
+    #[test]
+    fn test_insert_newline_auto_indent_tabs() {
+        let mut buf = buf_from("\t\thello");
+        buf.cursor_col = 7;
+        buf.insert_newline();
+        assert_eq!(buf.cursor_row, 1);
+        assert_eq!(buf.cursor_col, 2);
+    }
+
+    #[test]
+    fn test_insert_newline_auto_indent_mid_line() {
+        let mut buf = buf_from("  foo bar");
+        buf.cursor_col = 5; // between "fo" and "o bar"
+        buf.insert_newline();
+        assert_eq!(buf.get_line(0).unwrap(), "  foo\n");
+        assert_eq!(buf.get_line(1).unwrap(), "   bar");
+        assert_eq!(buf.cursor_col, 2);
     }
 
     #[test]

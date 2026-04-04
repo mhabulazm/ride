@@ -4,14 +4,7 @@
 
 - Text selection and clipboard (copy/cut/paste)
 - Multi-cursor editing
-- Auto-indent on newline (carry over indentation from previous line)
 - Find and replace (search exists but no replace)
-
-## Tree-Sitter Integration
-
-- Implement per-line caching so Java and Markdown use their tree-sitter parsers instead of the regex fallback
-- Code folding based on syntax tree
-- Scope-aware features and improved semantic highlighting
 
 ## File Handling
 
@@ -22,7 +15,6 @@
 
 - Minimap or scrollbar position indicator
 - Mouse support (crossterm supports it, nothing is wired up)
-- Soft line wrapping for long lines
 
 ## Quality of Life
 
@@ -35,9 +27,7 @@
 
 ## Language Support
 
-- Additional tree-sitter grammars (Rust, Python, TypeScript, Go, etc.)
-- LSP autocomplete / code actions
-- Linting and diagnostics gutter (inline markers beyond line numbers)
+- LSP code actions
 
 ## Infrastructure
 

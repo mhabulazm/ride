@@ -1,4 +1,5 @@
 use crate::app::App;
+use crate::ui_completion::render_completion;
 use crate::ui_editor::render_editor;
 use crate::ui_explorer::render_explorer;
 use crate::ui_fuzzy::render_fuzzy;
@@ -69,5 +70,10 @@ pub fn render(frame: &mut Frame, app: &mut App) {
     // Go-to-line overlay
     if app.focus == FocusPane::GoToLine {
         render_goto_line(frame, content_area, app);
+    }
+
+    // Completion popup overlay
+    if app.completion_active {
+        render_completion(frame, content_area, app);
     }
 }

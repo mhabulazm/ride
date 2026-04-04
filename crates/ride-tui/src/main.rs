@@ -1,5 +1,6 @@
 mod app;
 mod ui;
+mod ui_completion;
 mod ui_editor;
 mod ui_explorer;
 mod ui_fuzzy;

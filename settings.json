@@ -20,6 +20,62 @@
     "go": {
       "command": "gopls",
       "args": []
+    },
+    "yaml": {
+      "command": "yaml-language-server",
+      "args": ["--stdio"]
+    },
+    "yml": {
+      "command": "yaml-language-server",
+      "args": ["--stdio"]
+    },
+    "toml": {
+      "command": "taplo",
+      "args": ["lsp", "stdio"]
+    },
+    "proto": {
+      "command": "buf",
+      "args": ["beta", "lsp"]
+    },
+    "sh": {
+      "command": "bash-language-server",
+      "args": ["start"]
+    },
+    "bash": {
+      "command": "bash-language-server",
+      "args": ["start"]
+    },
+    "kt": {
+      "command": "kotlin-language-server",
+      "args": []
+    },
+    "dockerfile": {
+      "command": "docker-langserver",
+      "args": ["--stdio"]
+    },
+    "helm": {
+      "command": "helm_ls",
+      "args": ["serve"]
+    },
+    "tf": {
+      "command": "terraform-ls",
+      "args": ["serve"]
+    },
+    "json": {
+      "command": "vscode-json-language-server",
+      "args": ["--stdio"]
+    },
+    "md": {
+      "command": "marksman",
+      "args": ["server"]
+    },
+    "sql": {
+      "command": "sqls",
+      "args": []
+    },
+    "xml": {
+      "command": "lemminx",
+      "args": []
     }
   }
 }

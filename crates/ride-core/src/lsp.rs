@@ -47,6 +47,7 @@ pub struct Diagnostic {
     pub file: PathBuf,
     pub line: usize,
     pub col: usize,
+    pub end_col: usize,
     pub severity: DiagnosticSeverity,
     pub message: String,
 }
@@ -57,6 +58,31 @@ pub enum DiagnosticSeverity {
     Warning,
     Info,
     Hint,
+}
+
+#[derive(Debug, Clone)]
+pub struct CompletionItem {
+    pub label: String,
+    pub detail: Option<String>,
+    pub insert_text: Option<String>,
+    pub kind: CompletionKind,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompletionKind {
+    Text,
+    Method,
+    Function,
+    Constructor,
+    Field,
+    Variable,
+    Class,
+    Interface,
+    Module,
+    Property,
+    Keyword,
+    Snippet,
+    Other,
 }
 
 #[derive(Debug, Clone)]
@@ -72,6 +98,9 @@ pub enum LspEvent {
         file: PathBuf,
         line: usize,
         col: usize,
+    },
+    Completion {
+        items: Vec<CompletionItem>,
     },
     Error(String),
 }
@@ -173,6 +202,7 @@ impl LspClient {
                                     file: file.clone(),
                                     line: d.range.start.line as usize,
                                     col: d.range.start.character as usize,
+                                    end_col: d.range.end.character as usize,
                                     severity: match d.severity {
                                         Some(1) => DiagnosticSeverity::Error,
                                         Some(2) => DiagnosticSeverity::Warning,
@@ -262,7 +292,13 @@ impl LspClient {
                 "textDocument": {
                     "hover": { "contentFormat": ["plaintext"] },
                     "definition": {},
-                    "publishDiagnostics": {}
+                    "publishDiagnostics": {},
+                    "completion": {
+                        "completionItem": {
+                            "snippetSupport": false,
+                            "insertReplaceSupport": false
+                        }
+                    }
                 }
             }
         });
@@ -331,6 +367,17 @@ impl LspClient {
         );
     }
 
+    pub fn completion(&mut self, path: &Path, line: u32, character: u32) {
+        let uri = path_to_uri(path);
+        self.send_request(
+            "textDocument/completion",
+            json!({
+                "textDocument": { "uri": uri },
+                "position": { "line": line, "character": character },
+            }),
+        );
+    }
+
     pub fn poll_events(&self) -> Vec<LspEvent> {
         let mut events = Vec::new();
         while let Ok(event) = self.events_rx.try_recv() {
@@ -359,6 +406,7 @@ pub struct LspManager {
     pub diagnostics: HashMap<PathBuf, Vec<Diagnostic>>,
     pub hover_info: Option<String>,
     pub pending_goto: Option<(PathBuf, usize, usize)>,
+    pub pending_completions: Option<Vec<CompletionItem>>,
     configs: HashMap<String, LspServerConfig>,
     root_path: PathBuf,
     initialized_servers: HashMap<String, bool>,
@@ -371,6 +419,7 @@ impl LspManager {
             diagnostics: HashMap::new(),
             hover_info: None,
             pending_goto: None,
+            pending_completions: None,
             configs,
             root_path: root_path.to_path_buf(),
             initialized_servers: HashMap::new(),
@@ -438,6 +487,17 @@ impl LspManager {
         }
     }
 
+    pub fn request_completion(&mut self, path: &Path, line: u32, col: u32) {
+        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+            let ext = ext.to_lowercase();
+            self.ensure_server_for_extension(&ext);
+            if let Some(client) = self.clients.get_mut(&ext) {
+                self.pending_completions = None;
+                client.completion(path, line, col);
+            }
+        }
+    }
+
     pub fn poll(&mut self) {
         let exts: Vec<String> = self.clients.keys().cloned().collect();
         for ext in exts {
@@ -465,6 +525,9 @@ impl LspManager {
                     }
                     LspEvent::GotoDefinition { file, line, col } => {
                         self.pending_goto = Some((file, line, col));
+                    }
+                    LspEvent::Completion { items } => {
+                        self.pending_completions = Some(items);
                     }
                     LspEvent::Error(_) => {}
                 }
@@ -509,6 +572,13 @@ impl Drop for LspManager {
 // --- Helpers ---
 
 fn parse_response(_id: i64, result: &Value) -> LspEvent {
+    // Completion result (CompletionList with "items" field)
+    if let Some(items) = result.get("items").and_then(|i| i.as_array()) {
+        return LspEvent::Completion {
+            items: parse_completion_items(items),
+        };
+    }
+
     // Hover result
     if let Some(contents) = result.get("contents") {
         let text = extract_hover_text(contents);
@@ -535,9 +605,16 @@ fn parse_response(_id: i64, result: &Value) -> LspEvent {
         }
     }
 
-    // Array of locations (goto definition can return an array)
+    // Array response: could be completion items or goto definition locations
     if let Some(arr) = result.as_array() {
+        // Check if it looks like completion items (has "label" field)
         if let Some(first) = arr.first() {
+            if first.get("label").is_some() {
+                return LspEvent::Completion {
+                    items: parse_completion_items(arr),
+                };
+            }
+            // Goto definition array
             if let (Some(uri_str), Some(range)) =
                 (first.get("uri").and_then(|u| u.as_str()), first.get("range"))
             {
@@ -565,6 +642,44 @@ fn parse_response(_id: i64, result: &Value) -> LspEvent {
     }
 
     LspEvent::Error("Unknown response".to_string())
+}
+
+fn parse_completion_items(items: &[Value]) -> Vec<CompletionItem> {
+    items
+        .iter()
+        .filter_map(|item| {
+            let label = item.get("label")?.as_str()?.to_string();
+            let detail = item
+                .get("detail")
+                .and_then(|d| d.as_str())
+                .map(|s| s.to_string());
+            let insert_text = item
+                .get("insertText")
+                .and_then(|t| t.as_str())
+                .map(|s| s.to_string());
+            let kind_num = item.get("kind").and_then(|k| k.as_u64()).unwrap_or(1);
+            let kind = match kind_num {
+                2 => CompletionKind::Method,
+                3 => CompletionKind::Function,
+                4 => CompletionKind::Constructor,
+                5 => CompletionKind::Field,
+                6 => CompletionKind::Variable,
+                7 => CompletionKind::Class,
+                8 => CompletionKind::Interface,
+                9 => CompletionKind::Module,
+                10 => CompletionKind::Property,
+                14 => CompletionKind::Keyword,
+                15 => CompletionKind::Snippet,
+                _ => CompletionKind::Other,
+            };
+            Some(CompletionItem {
+                label,
+                detail,
+                insert_text,
+                kind,
+            })
+        })
+        .collect()
 }
 
 fn extract_hover_text(contents: &Value) -> String {

@@ -25,6 +25,11 @@ pub enum Command {
     DeleteForward,
     Undo,
 
+    // Folding
+    ToggleFold,
+    FoldAll,
+    UnfoldAll,
+
     // File operations
     Save,
     Quit,
@@ -57,6 +62,13 @@ pub enum Command {
     // LSP
     LspHover,
     LspGotoDefinition,
+    LspComplete,
+
+    // Completion menu
+    CompletionUp,
+    CompletionDown,
+    CompletionConfirm,
+    CompletionClose,
 
     // Go to line
     GoToLineOpen,
@@ -85,6 +97,7 @@ pub enum FocusPane {
     SearchBar,
     FuzzyFinder,
     GoToLine,
+    Completion,
 }
 
 /// Bindable commands (no data payload). Used for JSON keybinding deserialization.
@@ -124,8 +137,16 @@ pub enum SimpleCommand {
     FocusEditor,
     MoveWordLeft,
     MoveWordRight,
+    ToggleFold,
+    FoldAll,
+    UnfoldAll,
     LspHover,
     LspGotoDefinition,
+    LspComplete,
+    CompletionUp,
+    CompletionDown,
+    CompletionConfirm,
+    CompletionClose,
     GoToLineOpen,
     GoToLineBackspace,
     GoToLineConfirm,
@@ -175,8 +196,16 @@ impl SimpleCommand {
             Self::FocusEditor => Command::FocusEditor,
             Self::MoveWordLeft => Command::MoveWordLeft,
             Self::MoveWordRight => Command::MoveWordRight,
+            Self::ToggleFold => Command::ToggleFold,
+            Self::FoldAll => Command::FoldAll,
+            Self::UnfoldAll => Command::UnfoldAll,
             Self::LspHover => Command::LspHover,
             Self::LspGotoDefinition => Command::LspGotoDefinition,
+            Self::LspComplete => Command::LspComplete,
+            Self::CompletionUp => Command::CompletionUp,
+            Self::CompletionDown => Command::CompletionDown,
+            Self::CompletionConfirm => Command::CompletionConfirm,
+            Self::CompletionClose => Command::CompletionClose,
             Self::GoToLineOpen => Command::GoToLineOpen,
             Self::GoToLineBackspace => Command::GoToLineBackspace,
             Self::GoToLineConfirm => Command::GoToLineConfirm,

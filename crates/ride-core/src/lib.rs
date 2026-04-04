@@ -1,6 +1,7 @@
 pub mod buffer;
 pub mod command;
 pub mod explorer;
+pub mod folding;
 pub mod fuzzy;
 pub mod highlight;
 pub mod keymap;

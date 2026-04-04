@@ -47,8 +47,13 @@ pub enum HighlighterType {
 pub enum TreeSitterLang {
     Java,
     Markdown,
-    // Kotlin: blocked by tree-sitter-kotlin crate version conflict.
-    // Uses regex fallback for now. Add back when crate supports tree-sitter >=0.24.
+    Rust,
+    Python,
+    TypeScript,
+    JavaScript,
+    Go,
+    C,
+    Cpp,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -66,6 +71,13 @@ pub fn detect_highlighter(path: &Path) -> HighlighterType {
         .as_deref()
     {
         Some("java") => HighlighterType::TreeSitter(TreeSitterLang::Java),
+        Some("rs") => HighlighterType::TreeSitter(TreeSitterLang::Rust),
+        Some("py") => HighlighterType::TreeSitter(TreeSitterLang::Python),
+        Some("ts" | "tsx") => HighlighterType::TreeSitter(TreeSitterLang::TypeScript),
+        Some("js" | "jsx") => HighlighterType::TreeSitter(TreeSitterLang::JavaScript),
+        Some("go") => HighlighterType::TreeSitter(TreeSitterLang::Go),
+        Some("c" | "h") => HighlighterType::TreeSitter(TreeSitterLang::C),
+        Some("cpp" | "cc" | "hpp" | "cxx" | "hxx") => HighlighterType::TreeSitter(TreeSitterLang::Cpp),
         Some("kt") => HighlighterType::Regex(RegexLang::Code),
         Some("md") => HighlighterType::TreeSitter(TreeSitterLang::Markdown),
         Some("proto") => HighlighterType::Regex(RegexLang::Code),

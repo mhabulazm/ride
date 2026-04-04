@@ -1,9 +1,11 @@
 use ride_core::command::{Command, FocusPane};
 use ride_core::explorer::Explorer;
+use ride_core::folding::FoldState;
 use ride_core::fuzzy::FuzzyFinder;
 use ride_core::highlight::{self, HighlighterType};
+use ride_core::highlight::treesitter_hl::TreeSitterHighlighter;
 use ride_core::keymap::{self, KeymapConfig};
-use ride_core::lsp::LspManager;
+use ride_core::lsp::{CompletionItem, LspManager};
 use ride_core::search::SearchState;
 use ride_core::settings::Settings;
 use ride_core::tab::TabManager;
@@ -20,6 +22,8 @@ pub struct App {
     pub viewport_height: usize,
     pub working_dir: PathBuf,
     pub highlighter_types: Vec<HighlighterType>,
+    pub ts_highlighters: Vec<Option<TreeSitterHighlighter>>,
+    pub fold_states: Vec<FoldState>,
     pub keymap: KeymapConfig,
     pub fuzzy: FuzzyFinder,
     pub goto_line_input: String,
@@ -27,6 +31,9 @@ pub struct App {
     pub last_autosave: Instant,
     pub lsp: LspManager,
     pub hover_display: Option<String>,
+    pub completion_items: Vec<CompletionItem>,
+    pub completion_index: usize,
+    pub completion_active: bool,
     doc_versions: std::collections::HashMap<PathBuf, i32>,
 }
 
@@ -54,6 +61,8 @@ impl App {
             viewport_height: 24,
             working_dir,
             highlighter_types: Vec::new(),
+            ts_highlighters: Vec::new(),
+            fold_states: Vec::new(),
             keymap,
             fuzzy,
             goto_line_input: String::new(),
@@ -61,6 +70,9 @@ impl App {
             last_autosave: Instant::now(),
             lsp,
             hover_display: None,
+            completion_items: Vec::new(),
+            completion_index: 0,
+            completion_active: false,
             doc_versions: std::collections::HashMap::new(),
         };
 
@@ -79,7 +91,32 @@ impl App {
                 while self.highlighter_types.len() < self.tabs.tabs.len() {
                     self.highlighter_types.push(HighlighterType::Plain);
                 }
+                while self.ts_highlighters.len() < self.tabs.tabs.len() {
+                    self.ts_highlighters.push(None);
+                }
+                while self.fold_states.len() < self.tabs.tabs.len() {
+                    self.fold_states.push(FoldState::new());
+                }
                 self.highlighter_types[self.tabs.active] = hl_type;
+                // Initialize tree-sitter highlighter if applicable
+                if let HighlighterType::TreeSitter(lang) = hl_type {
+                    if let Some(mut hl) = TreeSitterHighlighter::new(lang) {
+                        if let Some(buf) = self.tabs.active_buffer() {
+                            let source = buf.rope.to_string();
+                            hl.parse(&source);
+                            // Initialize fold regions
+                            if let Some(tree) = hl.tree() {
+                                let lang_name = hl.lang_name().to_string();
+                                if let Some(fold_state) = self.fold_states.get_mut(self.tabs.active) {
+                                    fold_state.update_regions_from_tree(tree, &source, &lang_name);
+                                }
+                            }
+                        }
+                        self.ts_highlighters[self.tabs.active] = Some(hl);
+                    }
+                } else {
+                    self.ts_highlighters[self.tabs.active] = None;
+                }
                 self.focus = FocusPane::Editor;
                 self.status_message = format!("Opened {}", path.display());
                 // Notify LSP
@@ -102,6 +139,34 @@ impl App {
             .get(self.tabs.active)
             .copied()
             .unwrap_or(HighlighterType::Plain)
+    }
+
+    /// Reparse tree-sitter for the active tab if it has one.
+    /// Also updates fold regions from the parse tree.
+    pub fn reparse_tree_sitter(&mut self) {
+        if let Some(Some(ref mut hl)) = self.ts_highlighters.get_mut(self.tabs.active) {
+            if let Some(buf) = self.tabs.tabs.get(self.tabs.active) {
+                if buf.dirty {
+                    let source = buf.rope.to_string();
+                    hl.parse(&source);
+                    // Update fold regions
+                    if let Some(tree) = hl.tree() {
+                        let lang_name = hl.lang_name().to_string();
+                        if let Some(fold_state) = self.fold_states.get_mut(self.tabs.active) {
+                            fold_state.update_regions_from_tree(tree, &source, &lang_name);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Get tree-sitter highlight spans for a line, if available.
+    pub fn ts_highlight_line(&self, line_idx: usize) -> Option<Vec<highlight::HighlightSpan>> {
+        let ts_hl = self.ts_highlighters.get(self.tabs.active)?.as_ref()?;
+        let buf = self.tabs.tabs.get(self.tabs.active)?;
+        let source = buf.rope.to_string();
+        Some(ts_hl.highlight_line(&source, line_idx))
     }
 
     pub fn handle_command(&mut self, cmd: Command) {
@@ -177,6 +242,18 @@ impl App {
                 if let Some(buf) = self.tabs.active_buffer_mut() {
                     buf.insert_char(c);
                 }
+                // Auto-trigger completion on '.' or ':' (for '::')
+                if c == '.' || c == ':' {
+                    if let Some(buf) = self.tabs.active_buffer() {
+                        if let Some(ref path) = buf.file_path.clone() {
+                            if self.lsp.has_server_for(path) {
+                                let row = buf.cursor_row as u32;
+                                let col = buf.cursor_col as u32;
+                                self.lsp.request_completion(path, row, col);
+                            }
+                        }
+                    }
+                }
             }
             Command::InsertNewline => {
                 if let Some(buf) = self.tabs.active_buffer_mut() {
@@ -196,6 +273,31 @@ impl App {
             Command::Undo => {
                 if let Some(buf) = self.tabs.active_buffer_mut() {
                     buf.undo();
+                }
+            }
+
+            // Folding
+            Command::ToggleFold => {
+                let line = self
+                    .tabs
+                    .active_buffer()
+                    .map(|b| b.cursor_row)
+                    .unwrap_or(0);
+                if let Some(fold_state) = self.fold_states.get_mut(self.tabs.active) {
+                    fold_state.toggle_fold(line);
+                }
+            }
+            Command::FoldAll => {
+                if let Some(fold_state) = self.fold_states.get_mut(self.tabs.active) {
+                    let starts: Vec<usize> = fold_state.regions.iter().map(|r| r.start_line).collect();
+                    for s in starts {
+                        fold_state.fold(s);
+                    }
+                }
+            }
+            Command::UnfoldAll => {
+                if let Some(fold_state) = self.fold_states.get_mut(self.tabs.active) {
+                    fold_state.unfold_all();
                 }
             }
 
@@ -236,9 +338,15 @@ impl App {
                         return;
                     }
                 }
-                // Remove corresponding highlighter
+                // Remove corresponding highlighters
                 if self.tabs.active < self.highlighter_types.len() {
                     self.highlighter_types.remove(self.tabs.active);
+                }
+                if self.tabs.active < self.ts_highlighters.len() {
+                    self.ts_highlighters.remove(self.tabs.active);
+                }
+                if self.tabs.active < self.fold_states.len() {
+                    self.fold_states.remove(self.tabs.active);
                 }
                 self.tabs.close_tab();
             }
@@ -379,6 +487,53 @@ impl App {
                     }
                 }
             }
+            Command::LspComplete => {
+                if let Some(buf) = self.tabs.active_buffer() {
+                    if let Some(ref path) = buf.file_path.clone() {
+                        let row = buf.cursor_row as u32;
+                        let col = buf.cursor_col as u32;
+                        self.lsp.request_completion(path, row, col);
+                    }
+                }
+            }
+            Command::CompletionUp => {
+                if self.completion_active && !self.completion_items.is_empty() {
+                    if self.completion_index > 0 {
+                        self.completion_index -= 1;
+                    } else {
+                        self.completion_index = self.completion_items.len() - 1;
+                    }
+                }
+            }
+            Command::CompletionDown => {
+                if self.completion_active && !self.completion_items.is_empty() {
+                    self.completion_index =
+                        (self.completion_index + 1) % self.completion_items.len();
+                }
+            }
+            Command::CompletionConfirm => {
+                if self.completion_active {
+                    if let Some(item) = self.completion_items.get(self.completion_index) {
+                        let text = item
+                            .insert_text
+                            .as_deref()
+                            .unwrap_or(&item.label);
+                        if let Some(buf) = self.tabs.active_buffer_mut() {
+                            for c in text.chars() {
+                                buf.insert_char(c);
+                            }
+                        }
+                    }
+                    self.completion_active = false;
+                    self.completion_items.clear();
+                    self.focus = FocusPane::Editor;
+                }
+            }
+            Command::CompletionClose => {
+                self.completion_active = false;
+                self.completion_items.clear();
+                self.focus = FocusPane::Editor;
+            }
         }
     }
 
@@ -436,6 +591,16 @@ impl App {
             if let Some(buf) = self.tabs.active_buffer_mut() {
                 buf.cursor_row = line;
                 buf.cursor_col = col;
+            }
+        }
+
+        // Handle completion result
+        if let Some(items) = self.lsp.pending_completions.take() {
+            if !items.is_empty() {
+                self.completion_items = items;
+                self.completion_index = 0;
+                self.completion_active = true;
+                self.focus = FocusPane::Completion;
             }
         }
 

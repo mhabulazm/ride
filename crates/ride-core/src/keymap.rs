@@ -82,6 +82,8 @@ struct KeybindingsFile {
     fuzzy: Vec<BindingEntry>,
     #[serde(default)]
     goto_line: Vec<BindingEntry>,
+    #[serde(default)]
+    completion: Vec<BindingEntry>,
 }
 
 #[derive(Deserialize)]
@@ -98,6 +100,7 @@ pub struct KeymapConfig {
     search: HashMap<KeyEvent, Command>,
     fuzzy: HashMap<KeyEvent, Command>,
     goto_line: HashMap<KeyEvent, Command>,
+    completion: HashMap<KeyEvent, Command>,
 }
 
 impl KeymapConfig {
@@ -142,6 +145,11 @@ impl KeymapConfig {
         for entry in &file.goto_line {
             if let Some(key) = parse_key_string(&entry.key) {
                 config.goto_line.insert(key, entry.command.into_command());
+            }
+        }
+        for entry in &file.completion {
+            if let Some(key) = parse_key_string(&entry.key) {
+                config.completion.insert(key, entry.command.into_command());
             }
         }
 
@@ -202,6 +210,10 @@ impl KeymapConfig {
         editor.insert(key('g', Modifiers::ctrl()), Command::GoToLineOpen);
         editor.insert(key('h', Modifiers::ctrl()), Command::LspHover);
         editor.insert(key('d', Modifiers::ctrl()), Command::LspGotoDefinition);
+        editor.insert(key(' ', Modifiers::ctrl()), Command::LspComplete);
+        // Folding: Ctrl+Shift+[ to toggle, Ctrl+Shift+] to unfold all (using available keys)
+        editor.insert(key('[', Modifiers::ctrl()), Command::ToggleFold);
+        editor.insert(key(']', Modifiers::ctrl()), Command::UnfoldAll);
         editor.insert(special(KeyCode::Home), Command::MoveToLineStart);
         editor.insert(special(KeyCode::End), Command::MoveToLineEnd);
         editor.insert(special(KeyCode::PageUp), Command::PageUp);
@@ -244,7 +256,15 @@ impl KeymapConfig {
         goto_line.insert(special(KeyCode::Enter), Command::GoToLineConfirm);
         goto_line.insert(special(KeyCode::Backspace), Command::GoToLineBackspace);
 
-        Self { editor, explorer, search, fuzzy, goto_line }
+        // Completion bindings
+        let mut completion = HashMap::new();
+        completion.insert(special(KeyCode::Esc), Command::CompletionClose);
+        completion.insert(special(KeyCode::Enter), Command::CompletionConfirm);
+        completion.insert(special(KeyCode::Tab), Command::CompletionConfirm);
+        completion.insert(special(KeyCode::Up), Command::CompletionUp);
+        completion.insert(special(KeyCode::Down), Command::CompletionDown);
+
+        Self { editor, explorer, search, fuzzy, goto_line, completion }
     }
 
     /// Map a key event to a command, using the bindings for the given focus pane.
@@ -257,6 +277,7 @@ impl KeymapConfig {
             FocusPane::SearchBar => &self.search,
             FocusPane::FuzzyFinder => &self.fuzzy,
             FocusPane::GoToLine => &self.goto_line,
+            FocusPane::Completion => &self.completion,
         };
 
         if let Some(cmd) = table.get(&event) {
