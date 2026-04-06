@@ -1,17 +1,17 @@
 use crate::app::App;
+use crate::theme_style::{parse_color, to_style};
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 
 pub fn render_status(frame: &mut Frame, area: Rect, app: &App) {
+    let theme = &app.theme;
+
     let mut spans = vec![Span::styled(
         " RIDE ",
-        Style::default()
-            .fg(Color::Black)
-            .bg(Color::Cyan)
-            .add_modifier(Modifier::BOLD),
+        to_style(&theme.ui.status_label),
     )];
 
     if let Some(buf) = app.tabs.active_buffer() {
@@ -19,11 +19,11 @@ pub fn render_status(frame: &mut Frame, area: Rect, app: &App) {
         let dirty = if buf.dirty { " ●" } else { "" };
         spans.push(Span::styled(
             format!(" {}{} ", file_name, dirty),
-            Style::default().fg(Color::White).bg(Color::DarkGray),
+            to_style(&theme.ui.status_file),
         ));
         spans.push(Span::styled(
             format!(" Ln {}, Col {} ", buf.cursor_row + 1, buf.cursor_col + 1),
-            Style::default().fg(Color::Gray).bg(Color::DarkGray),
+            to_style(&theme.ui.status_position),
         ));
     }
 
@@ -32,14 +32,15 @@ pub fn render_status(frame: &mut Frame, area: Rect, app: &App) {
         if let Some(ref path) = buf.file_path {
             let diags = app.lsp.get_diagnostics_for_line(path, buf.cursor_row);
             if let Some(d) = diags.first() {
-                let color = match d.severity {
-                    ride_core::lsp::DiagnosticSeverity::Error => Color::Red,
-                    ride_core::lsp::DiagnosticSeverity::Warning => Color::Yellow,
-                    _ => Color::Cyan,
+                let style = match d.severity {
+                    ride_core::lsp::DiagnosticSeverity::Error => to_style(&theme.ui.diagnostic_error),
+                    ride_core::lsp::DiagnosticSeverity::Warning => to_style(&theme.ui.diagnostic_warning),
+                    ride_core::lsp::DiagnosticSeverity::Info => to_style(&theme.ui.diagnostic_info),
+                    ride_core::lsp::DiagnosticSeverity::Hint => to_style(&theme.ui.diagnostic_hint),
                 };
                 spans.push(Span::styled(
                     format!("  {} ", d.message),
-                    Style::default().fg(color),
+                    style,
                 ));
             }
         }
@@ -49,19 +50,19 @@ pub fn render_status(frame: &mut Frame, area: Rect, app: &App) {
     if let Some(ref hover) = app.hover_display {
         spans.push(Span::styled(
             format!("  {} ", hover.lines().next().unwrap_or("")),
-            Style::default().fg(Color::Cyan),
+            to_style(&theme.ui.status_hover),
         ));
     }
 
     if !app.status_message.is_empty() {
         spans.push(Span::styled(
             format!("  {} ", &app.status_message),
-            Style::default().fg(Color::Yellow),
+            to_style(&theme.ui.status_message),
         ));
     }
 
     let status = Paragraph::new(Line::from(spans))
-        .style(Style::default().bg(Color::DarkGray));
+        .style(Style::default().bg(parse_color(&theme.ui.status_bar_bg)));
 
     frame.render_widget(status, area);
 }

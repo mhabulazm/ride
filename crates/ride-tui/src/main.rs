@@ -8,6 +8,7 @@ mod ui_goto;
 mod ui_search;
 mod ui_status;
 mod ui_tabs;
+mod theme_style;
 
 use app::App;
 use crossterm::event::{self, Event};

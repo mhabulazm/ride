@@ -1,11 +1,13 @@
 use crate::app::App;
+use crate::theme_style::to_style;
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 
 pub fn render_search(frame: &mut Frame, area: Rect, app: &App) {
+    let theme = &app.theme;
+
     let mode = if app.search.across_files {
         "Search (files)"
     } else {
@@ -25,18 +27,15 @@ pub fn render_search(frame: &mut Frame, area: Rect, app: &App) {
     let line = Line::from(vec![
         Span::styled(
             format!(" {}: ", mode),
-            Style::default()
-                .fg(Color::Black)
-                .bg(Color::Yellow)
-                .add_modifier(Modifier::BOLD),
+            to_style(&theme.ui.search_label),
         ),
         Span::styled(
             &app.search.query,
-            Style::default().fg(Color::White),
+            to_style(&theme.ui.search_query),
         ),
         Span::styled(
             match_info,
-            Style::default().fg(Color::DarkGray),
+            to_style(&theme.ui.search_match_count),
         ),
     ]);
 

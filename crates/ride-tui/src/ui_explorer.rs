@@ -1,25 +1,31 @@
 use crate::app::App;
+use crate::theme_style::{parse_color, to_style};
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, List, ListItem};
 use ratatui::Frame;
 use ride_core::command::FocusPane;
 
 pub fn render_explorer(frame: &mut Frame, area: Rect, app: &App) {
+    let theme = &app.theme;
     let border_style = if app.focus == FocusPane::Explorer {
-        Style::default().fg(Color::Cyan)
+        Style::default().fg(parse_color(&theme.ui.border_focused))
     } else {
-        Style::default().fg(Color::DarkGray)
+        Style::default().fg(parse_color(&theme.ui.border_unfocused))
     };
 
     let block = Block::default()
         .borders(Borders::RIGHT)
         .border_style(border_style)
         .title(" Files ")
-        .title_style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD));
+        .title_style(to_style(&theme.ui.explorer_title));
 
     let inner = block.inner(area);
+
+    let selected_style = to_style(&theme.ui.explorer_selected);
+    let dir_style = to_style(&theme.ui.explorer_dir);
+    let file_style = to_style(&theme.ui.explorer_file);
 
     let items: Vec<ListItem> = app
         .explorer
@@ -39,14 +45,11 @@ pub fn render_explorer(frame: &mut Frame, area: Rect, app: &App) {
             };
 
             let style = if i == app.explorer.selected {
-                Style::default()
-                    .fg(Color::Black)
-                    .bg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD)
+                selected_style
             } else if entry.is_dir {
-                Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD)
+                dir_style
             } else {
-                Style::default().fg(Color::White)
+                file_style
             };
 
             ListItem::new(Line::from(vec![

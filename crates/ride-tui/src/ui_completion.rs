@@ -1,6 +1,7 @@
 use crate::app::App;
+use crate::theme_style::{parse_color, to_style};
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph};
 use ratatui::Frame;
@@ -15,6 +16,8 @@ pub fn render_completion(frame: &mut Frame, editor_area: Rect, app: &App) {
         Some(b) => b,
         None => return,
     };
+
+    let theme = &app.theme;
 
     // Position the popup near the cursor
     let gutter_width = 6u16; // diag_gutter(2) + line_num(4)
@@ -55,6 +58,9 @@ pub fn render_completion(frame: &mut Frame, editor_area: Rect, app: &App) {
         0
     };
 
+    let selected_style = to_style(&theme.ui.completion_selected);
+    let item_style = to_style(&theme.ui.completion_item);
+
     let lines: Vec<Line> = app
         .completion_items
         .iter()
@@ -64,12 +70,9 @@ pub fn render_completion(frame: &mut Frame, editor_area: Rect, app: &App) {
         .map(|(i, item)| {
             let icon = kind_icon(item.kind);
             let style = if i == app.completion_index {
-                Style::default()
-                    .fg(Color::Black)
-                    .bg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD)
+                selected_style
             } else {
-                Style::default().fg(Color::White)
+                item_style
             };
             Line::from(vec![
                 Span::styled(format!("{} ", icon), style),
@@ -80,8 +83,8 @@ pub fn render_completion(frame: &mut Frame, editor_area: Rect, app: &App) {
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::DarkGray))
-        .style(Style::default().bg(Color::Black));
+        .border_style(Style::default().fg(parse_color(&theme.ui.completion_border)))
+        .style(Style::default().bg(parse_color(&theme.ui.completion_bg)));
 
     let paragraph = Paragraph::new(lines).block(block);
 

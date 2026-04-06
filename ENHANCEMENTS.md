@@ -18,7 +18,6 @@
 
 ## Quality of Life
 
-- Configurable theme and colors (currently hardcoded in ui_editor.rs)
 - Tab size and spaces-vs-tabs setting
 - File type indicator in the status bar
 - Multiple split panes (vertical/horizontal editor splits)

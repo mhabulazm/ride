@@ -90,6 +90,7 @@ All keybindings are shown on the welcome screen when no file is open. Keybinding
 - LSP client with diagnostics, hover, go-to-definition, and autocomplete
 - Diagnostics gutter with severity indicators (● error, ▲ warning, ℹ info) and underline on affected ranges
 - LSP autocomplete with popup menu (Ctrl+Space or auto-triggered on `.`/`:`)
+- Configurable color themes (dark, light, monokai, solarized-dark) with custom overrides
 - Welcome screen with keybinding reference
 - Undo support
 
@@ -103,6 +104,7 @@ RIDE reads two JSON files from the working directory:
 ```json
 {
   "autosave_interval_secs": 300,
+  "theme": "monokai",
   "lsp": {
     "rs": { "command": "rust-analyzer", "args": [] },
     "py": { "command": "pylsp", "args": [] },
@@ -112,6 +114,30 @@ RIDE reads two JSON files from the working directory:
 ```
 
 Set `autosave_interval_secs` to `0` to disable autosave. LSP servers are configured per file extension — the server is started on demand when a file of that type is opened.
+
+### Themes
+
+Built-in themes: `dark` (default), `light`, `monokai`, `solarized-dark`.
+
+Set `"theme": "monokai"` to use a built-in theme. For custom overrides on top of a base theme:
+
+```json
+{
+  "theme": {
+    "base": "dark",
+    "syntax": {
+      "keyword": { "fg": "#ff79c6", "bold": true },
+      "string": { "fg": "#f1fa8c" }
+    },
+    "ui": {
+      "border_focused": "#bd93f9",
+      "status_label": { "fg": "#282a36", "bg": "#50fa7b", "bold": true }
+    }
+  }
+}
+```
+
+Colors can be named (`red`, `cyan`, `darkgray`) or hex (`#ff5733`).
 
 ## Architecture
 
@@ -130,4 +156,4 @@ The core is decoupled from the UI, allowing a future GUI frontend (e.g. egui/ice
 cargo test
 ```
 
-117 unit tests covering buffer operations, auto-indent, word movement, bracket matching, code folding, tab management, keymap parsing and loading, search, fuzzy finder, settings, and LSP message parsing.
+125 unit tests covering buffer operations, auto-indent, word movement, bracket matching, code folding, tab management, keymap parsing and loading, search, fuzzy finder, settings, themes, and LSP message parsing.

@@ -1,6 +1,7 @@
 use crate::app::App;
+use crate::theme_style::{parse_color, to_style};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Clear, List, ListItem, Paragraph};
 use ratatui::Frame;
@@ -8,19 +9,17 @@ use ratatui::Frame;
 const MAX_VISIBLE: usize = 12;
 
 pub fn render_fuzzy(frame: &mut Frame, area: Rect, app: &App) {
+    let theme = &app.theme;
+
     // Center a popup over the content area
     let popup = centered_rect(50, MAX_VISIBLE as u16 + 3, area);
     frame.render_widget(Clear, popup);
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan))
+        .border_style(Style::default().fg(parse_color(&theme.ui.fuzzy_border)))
         .title(" Open File (Ctrl+P) ")
-        .title_style(
-            Style::default()
-                .fg(Color::White)
-                .add_modifier(Modifier::BOLD),
-        );
+        .title_style(to_style(&theme.ui.fuzzy_title));
 
     let inner = block.inner(popup);
     frame.render_widget(block, popup);
@@ -33,11 +32,11 @@ pub fn render_fuzzy(frame: &mut Frame, area: Rect, app: &App) {
     // Input line
     let match_count = app.fuzzy.filtered.len();
     let input_line = Line::from(vec![
-        Span::styled("> ", Style::default().fg(Color::Yellow)),
+        Span::styled("> ", to_style(&theme.ui.fuzzy_prompt)),
         Span::raw(&app.fuzzy.query),
         Span::styled(
             format!("  ({} files)", match_count),
-            Style::default().fg(Color::DarkGray),
+            to_style(&theme.ui.fuzzy_match_count),
         ),
     ]);
     frame.render_widget(Paragraph::new(input_line), chunks[0]);
@@ -50,6 +49,9 @@ pub fn render_fuzzy(frame: &mut Frame, area: Rect, app: &App) {
         0
     };
 
+    let selected_style = to_style(&theme.ui.fuzzy_selected);
+    let item_style = to_style(&theme.ui.fuzzy_item);
+
     let items: Vec<ListItem> = app
         .fuzzy
         .filtered
@@ -61,12 +63,9 @@ pub fn render_fuzzy(frame: &mut Frame, area: Rect, app: &App) {
             let display = app.fuzzy.display_path(path);
             let actual_idx = scroll_offset + i;
             let style = if actual_idx == app.fuzzy.selected {
-                Style::default()
-                    .fg(Color::Black)
-                    .bg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD)
+                selected_style
             } else {
-                Style::default().fg(Color::White)
+                item_style
             };
             ListItem::new(Span::styled(format!("  {}", display), style))
         })

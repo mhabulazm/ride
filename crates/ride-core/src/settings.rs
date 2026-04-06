@@ -1,3 +1,4 @@
+use crate::theme::{Theme, ThemeConfig};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::Path;
@@ -9,6 +10,18 @@ pub struct Settings {
 
     #[serde(default)]
     pub lsp: HashMap<String, LspServerConfig>,
+
+    #[serde(default)]
+    pub theme: Option<ThemeConfig>,
+}
+
+impl Settings {
+    pub fn resolve_theme(&self) -> Theme {
+        match &self.theme {
+            Some(config) => Theme::resolve(config),
+            None => Theme::default(),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -27,6 +40,7 @@ impl Default for Settings {
         Self {
             autosave_interval_secs: default_autosave_interval(),
             lsp: HashMap::new(),
+            theme: None,
         }
     }
 }

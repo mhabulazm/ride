@@ -9,3 +9,4 @@ pub mod lsp;
 pub mod search;
 pub mod settings;
 pub mod tab;
+pub mod theme;

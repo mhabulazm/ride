@@ -9,6 +9,7 @@ use ride_core::lsp::{CompletionItem, LspManager};
 use ride_core::search::SearchState;
 use ride_core::settings::Settings;
 use ride_core::tab::TabManager;
+use ride_core::theme::Theme;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
@@ -34,6 +35,7 @@ pub struct App {
     pub completion_items: Vec<CompletionItem>,
     pub completion_index: usize,
     pub completion_active: bool,
+    pub theme: Theme,
     doc_versions: std::collections::HashMap<PathBuf, i32>,
 }
 
@@ -50,6 +52,7 @@ impl App {
         let keymap = KeymapConfig::load(&working_dir);
         let fuzzy = FuzzyFinder::new(&working_dir);
         let settings = Settings::load(&working_dir);
+        let theme = settings.resolve_theme();
         let lsp = LspManager::new(settings.lsp.clone(), &working_dir);
         let mut app = Self {
             tabs: TabManager::new(),
@@ -73,6 +76,7 @@ impl App {
             completion_items: Vec::new(),
             completion_index: 0,
             completion_active: false,
+            theme,
             doc_versions: std::collections::HashMap::new(),
         };
 

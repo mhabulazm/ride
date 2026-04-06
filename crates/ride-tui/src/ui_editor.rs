@@ -1,19 +1,22 @@
 use crate::app::App;
+use crate::theme_style::{parse_color, to_style};
 use std::collections::HashMap;
 use ratatui::layout::Rect;
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph};
 use ratatui::Frame;
 use ride_core::command::FocusPane;
 use ride_core::highlight::{self, HighlightKind};
 use ride_core::lsp::DiagnosticSeverity;
+use ride_core::theme::Theme;
 
 pub fn render_editor(frame: &mut Frame, area: Rect, app: &mut App) {
+    let theme = app.theme.clone();
     let border_style = if app.focus == FocusPane::Editor {
-        Style::default().fg(Color::Cyan)
+        Style::default().fg(parse_color(&theme.ui.border_focused))
     } else {
-        Style::default().fg(Color::DarkGray)
+        Style::default().fg(parse_color(&theme.ui.border_unfocused))
     };
 
     let block = Block::default()
@@ -24,10 +27,10 @@ pub fn render_editor(frame: &mut Frame, area: Rect, app: &mut App) {
     frame.render_widget(block, area);
 
     if app.tabs.active_buffer().is_none() {
-        let title_style = Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD);
-        let key_style = Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD);
-        let desc_style = Style::default().fg(Color::White);
-        let section_style = Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD);
+        let title_style = to_style(&theme.ui.welcome_title);
+        let key_style = to_style(&theme.ui.welcome_key);
+        let desc_style = to_style(&theme.ui.welcome_desc);
+        let section_style = to_style(&theme.ui.welcome_section);
 
         let keybinding = |key: &str, desc: &str| -> Line {
             Line::from(vec![
@@ -122,6 +125,18 @@ pub fn render_editor(frame: &mut Frame, area: Rect, app: &mut App) {
     // Get fold state for active tab
     let fold_state = app.fold_states.get(app.tabs.active);
 
+    // Pre-compute theme styles
+    let line_num_color = parse_color(&theme.ui.line_number);
+    let line_num_active_style = to_style(&theme.ui.line_number_active);
+    let bracket_style = to_style(&theme.ui.bracket_match);
+    let fold_style = to_style(&theme.ui.fold_indicator);
+    let tilde_color = parse_color(&theme.ui.tilde_empty);
+    let wrap_color = parse_color(&theme.ui.wrap_gutter);
+    let diag_error_style = to_style(&theme.ui.diagnostic_error);
+    let diag_warning_style = to_style(&theme.ui.diagnostic_warning);
+    let diag_info_style = to_style(&theme.ui.diagnostic_info);
+    let diag_hint_style = to_style(&theme.ui.diagnostic_hint);
+
     let mut buf_row = buf.scroll_row;
     while visual_row < viewport_h && buf_row < buf.line_count() {
         // Skip hidden (folded) lines
@@ -146,32 +161,18 @@ pub fn render_editor(frame: &mut Frame, area: Rect, app: &mut App) {
             })
         });
         let (diag_symbol, diag_symbol_style) = match diag_severity {
-            Some(DiagnosticSeverity::Error) => (
-                "● ",
-                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
-            ),
-            Some(DiagnosticSeverity::Warning) => (
-                "▲ ",
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
-            ),
-            Some(DiagnosticSeverity::Info) => (
-                "ℹ ",
-                Style::default().fg(Color::Cyan),
-            ),
-            Some(DiagnosticSeverity::Hint) => (
-                "ℹ ",
-                Style::default().fg(Color::DarkGray),
-            ),
+            Some(DiagnosticSeverity::Error) => ("● ", diag_error_style),
+            Some(DiagnosticSeverity::Warning) => ("▲ ", diag_warning_style),
+            Some(DiagnosticSeverity::Info) => ("ℹ ", diag_info_style),
+            Some(DiagnosticSeverity::Hint) => ("ℹ ", diag_hint_style),
             None => ("  ", Style::default()),
         };
         let line_num_style = if diag_severity.is_some() {
             diag_symbol_style
         } else if buf_row == buf.cursor_row {
-            Style::default()
-                .fg(Color::Yellow)
-                .add_modifier(Modifier::BOLD)
+            line_num_active_style
         } else {
-            Style::default().fg(Color::DarkGray)
+            Style::default().fg(line_num_color)
         };
 
         // Collect diagnostic ranges for underline styling
@@ -210,16 +211,12 @@ pub fn render_editor(frame: &mut Frame, area: Rect, app: &mut App) {
         for hl in &hl_spans {
             let s = hl.start.min(end);
             let e = hl.end.min(end);
-            let style = highlight_style(hl.kind);
+            let style = highlight_style(hl.kind, &theme);
             for pos in s..e {
                 style_map[pos] = style;
             }
         }
 
-        let bracket_style = Style::default()
-            .fg(Color::Yellow)
-            .bg(Color::DarkGray)
-            .add_modifier(Modifier::BOLD);
         for &col in &bracket_cols {
             if col < end {
                 style_map[col] = bracket_style;
@@ -274,9 +271,7 @@ pub fn render_editor(frame: &mut Frame, area: Rect, app: &mut App) {
 
                     spans.push(Span::styled(
                         format!(" ... {} lines ", hidden),
-                        Style::default()
-                            .fg(Color::DarkGray)
-                            .add_modifier(Modifier::ITALIC),
+                        fold_style,
                     ));
 
                     // Cursor on the fold start line
@@ -340,7 +335,7 @@ pub fn render_editor(frame: &mut Frame, area: Rect, app: &mut App) {
                 spans.push(Span::styled(line_num, line_num_style));
             } else {
                 let blank_gutter = format!("{:>width$} ", " ", width = gutter_width as usize);
-                spans.push(Span::styled(blank_gutter, Style::default().fg(Color::DarkGray)));
+                spans.push(Span::styled(blank_gutter, Style::default().fg(wrap_color)));
             }
 
             // Render text for this chunk with styles
@@ -389,7 +384,7 @@ pub fn render_editor(frame: &mut Frame, area: Rect, app: &mut App) {
     while visual_row < viewport_h {
         visual_lines.push(Line::from(vec![Span::styled(
             format!("{:>width$} ", "~", width = gutter_width as usize),
-            Style::default().fg(Color::DarkGray),
+            Style::default().fg(tilde_color),
         )]));
         visual_row += 1;
     }
@@ -405,27 +400,28 @@ pub fn render_editor(frame: &mut Frame, area: Rect, app: &mut App) {
     }
 }
 
-fn highlight_style(kind: HighlightKind) -> Style {
-    match kind {
-        HighlightKind::Keyword => Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD),
-        HighlightKind::Type => Style::default().fg(Color::Cyan),
-        HighlightKind::String => Style::default().fg(Color::Green),
-        HighlightKind::Comment => Style::default().fg(Color::DarkGray).add_modifier(Modifier::ITALIC),
-        HighlightKind::Number => Style::default().fg(Color::Yellow),
-        HighlightKind::Function => Style::default().fg(Color::Blue),
-        HighlightKind::Operator => Style::default().fg(Color::Red),
-        HighlightKind::Punctuation => Style::default().fg(Color::White),
-        HighlightKind::Variable => Style::default().fg(Color::White),
-        HighlightKind::Heading => Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
-        HighlightKind::Link => Style::default().fg(Color::Blue).add_modifier(Modifier::UNDERLINED),
-        HighlightKind::Emphasis => Style::default().add_modifier(Modifier::ITALIC),
-        HighlightKind::MermaidKeyword => Style::default().fg(Color::Magenta).add_modifier(Modifier::BOLD),
-        HighlightKind::MermaidArrow => Style::default().fg(Color::Cyan),
-        HighlightKind::LogError => Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
-        HighlightKind::LogWarn => Style::default().fg(Color::Yellow),
-        HighlightKind::LogInfo => Style::default().fg(Color::Green),
-        HighlightKind::LogDebug => Style::default().fg(Color::DarkGray),
-        HighlightKind::LogTimestamp => Style::default().fg(Color::Blue),
-        HighlightKind::Normal => Style::default(),
-    }
+fn highlight_style(kind: HighlightKind, theme: &Theme) -> Style {
+    let cs = match kind {
+        HighlightKind::Keyword => &theme.syntax.keyword,
+        HighlightKind::Type => &theme.syntax.type_name,
+        HighlightKind::String => &theme.syntax.string,
+        HighlightKind::Comment => &theme.syntax.comment,
+        HighlightKind::Number => &theme.syntax.number,
+        HighlightKind::Function => &theme.syntax.function,
+        HighlightKind::Operator => &theme.syntax.operator,
+        HighlightKind::Punctuation => &theme.syntax.punctuation,
+        HighlightKind::Variable => &theme.syntax.variable,
+        HighlightKind::Heading => &theme.syntax.heading,
+        HighlightKind::Link => &theme.syntax.link,
+        HighlightKind::Emphasis => &theme.syntax.emphasis,
+        HighlightKind::MermaidKeyword => &theme.syntax.mermaid_keyword,
+        HighlightKind::MermaidArrow => &theme.syntax.mermaid_arrow,
+        HighlightKind::LogError => &theme.syntax.log_error,
+        HighlightKind::LogWarn => &theme.syntax.log_warn,
+        HighlightKind::LogInfo => &theme.syntax.log_info,
+        HighlightKind::LogDebug => &theme.syntax.log_debug,
+        HighlightKind::LogTimestamp => &theme.syntax.log_timestamp,
+        HighlightKind::Normal => &theme.syntax.normal,
+    };
+    to_style(cs)
 }
