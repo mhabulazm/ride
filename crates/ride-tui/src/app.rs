@@ -49,9 +49,9 @@ impl App {
         };
 
         let explorer = Explorer::new(&working_dir);
-        let keymap = KeymapConfig::load(&working_dir);
-        let fuzzy = FuzzyFinder::new(&working_dir);
         let settings = Settings::load(&working_dir);
+        let keymap = KeymapConfig::load(&working_dir, settings.keymap_preset);
+        let fuzzy = FuzzyFinder::new(&working_dir);
         let theme = settings.resolve_theme();
         let lsp = LspManager::new(settings.lsp.clone(), &working_dir);
         let mut app = Self {
@@ -674,6 +674,7 @@ fn convert_key_event(event: crossterm::event::KeyEvent) -> keymap::KeyEvent {
         ctrl: event.modifiers.contains(KeyModifiers::CONTROL),
         shift: event.modifiers.contains(KeyModifiers::SHIFT),
         alt: event.modifiers.contains(KeyModifiers::ALT),
+        super_key: event.modifiers.contains(KeyModifiers::SUPER),
     };
 
     keymap::KeyEvent { code, modifiers }

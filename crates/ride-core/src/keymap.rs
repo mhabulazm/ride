@@ -32,6 +32,7 @@ pub struct Modifiers {
     pub ctrl: bool,
     pub shift: bool,
     pub alt: bool,
+    pub super_key: bool,
 }
 
 impl Modifiers {
@@ -40,6 +41,7 @@ impl Modifiers {
             ctrl: false,
             shift: false,
             alt: false,
+            super_key: false,
         }
     }
 
@@ -48,6 +50,7 @@ impl Modifiers {
             ctrl: true,
             shift: false,
             alt: false,
+            super_key: false,
         }
     }
 
@@ -56,6 +59,7 @@ impl Modifiers {
             ctrl: true,
             shift: true,
             alt: false,
+            super_key: false,
         }
     }
 
@@ -64,8 +68,47 @@ impl Modifiers {
             ctrl: false,
             shift: false,
             alt: true,
+            super_key: false,
         }
     }
+
+    pub fn super_key() -> Self {
+        Self {
+            ctrl: false,
+            shift: false,
+            alt: false,
+            super_key: true,
+        }
+    }
+
+    pub fn super_shift() -> Self {
+        Self {
+            ctrl: false,
+            shift: true,
+            alt: false,
+            super_key: true,
+        }
+    }
+
+    /// Return the equivalent with super_key instead of ctrl.
+    pub fn as_super(&self) -> Self {
+        Self {
+            ctrl: false,
+            shift: self.shift,
+            alt: self.alt,
+            super_key: true,
+        }
+    }
+}
+
+// --- Keymap preset ---
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum KeymapPreset {
+    #[default]
+    Default,
+    Mac,
 }
 
 // --- JSON schema types ---
@@ -106,21 +149,21 @@ pub struct KeymapConfig {
 impl KeymapConfig {
     /// Load keybindings from a JSON file, falling back to defaults if the file
     /// is missing or malformed.
-    pub fn load(path: &Path) -> Self {
+    pub fn load(path: &Path, preset: KeymapPreset) -> Self {
         let file_path = path.join("keybindings.json");
         match std::fs::read_to_string(&file_path) {
             Ok(contents) => match serde_json::from_str::<KeybindingsFile>(&contents) {
-                Ok(file) => Self::from_file(&file),
-                Err(_) => Self::defaults(),
+                Ok(file) => Self::from_file(&file, preset),
+                Err(_) => Self::defaults(preset),
             },
-            Err(_) => Self::defaults(),
+            Err(_) => Self::defaults(preset),
         }
     }
 
     /// Build from the JSON file, using defaults as the base and overriding
     /// with any bindings defined in the file.
-    fn from_file(file: &KeybindingsFile) -> Self {
-        let mut config = Self::defaults();
+    fn from_file(file: &KeybindingsFile, preset: KeymapPreset) -> Self {
+        let mut config = Self::defaults(preset);
 
         for entry in &file.editor {
             if let Some(key) = parse_key_string(&entry.key) {
@@ -157,7 +200,8 @@ impl KeymapConfig {
     }
 
     /// Hardcoded defaults matching the original keybindings.
-    pub fn defaults() -> Self {
+    /// When `preset` is `Mac`, every Ctrl+X binding is also registered as Cmd+X.
+    pub fn defaults(preset: KeymapPreset) -> Self {
         let mut editor = HashMap::new();
         let mut explorer = HashMap::new();
         let mut search = HashMap::new();
@@ -211,7 +255,7 @@ impl KeymapConfig {
         editor.insert(key('h', Modifiers::ctrl()), Command::LspHover);
         editor.insert(key('d', Modifiers::ctrl()), Command::LspGotoDefinition);
         editor.insert(key(' ', Modifiers::ctrl()), Command::LspComplete);
-        // Folding: Ctrl+Shift+[ to toggle, Ctrl+Shift+] to unfold all (using available keys)
+        // Folding: Ctrl+[ to toggle, Ctrl+] to unfold all
         editor.insert(key('[', Modifiers::ctrl()), Command::ToggleFold);
         editor.insert(key(']', Modifiers::ctrl()), Command::UnfoldAll);
         editor.insert(special(KeyCode::Home), Command::MoveToLineStart);
@@ -264,7 +308,41 @@ impl KeymapConfig {
         completion.insert(special(KeyCode::Up), Command::CompletionUp);
         completion.insert(special(KeyCode::Down), Command::CompletionDown);
 
-        Self { editor, explorer, search, fuzzy, goto_line, completion }
+        let mut config = Self { editor, explorer, search, fuzzy, goto_line, completion };
+
+        if preset == KeymapPreset::Mac {
+            config.add_cmd_aliases();
+        }
+
+        config
+    }
+
+    /// For every Ctrl+X binding in every pane, add a corresponding Cmd+X binding
+    /// (Super key). This lets Mac users use Cmd as the primary modifier.
+    fn add_cmd_aliases(&mut self) {
+        fn add_super_aliases(map: &mut HashMap<KeyEvent, Command>) {
+            let aliases: Vec<(KeyEvent, Command)> = map
+                .iter()
+                .filter(|(k, _)| k.modifiers.ctrl && !k.modifiers.super_key)
+                .map(|(k, v)| {
+                    let super_event = KeyEvent {
+                        code: k.code,
+                        modifiers: k.modifiers.as_super(),
+                    };
+                    (super_event, v.clone())
+                })
+                .collect();
+            for (k, v) in aliases {
+                map.entry(k).or_insert(v);
+            }
+        }
+
+        add_super_aliases(&mut self.editor);
+        add_super_aliases(&mut self.explorer);
+        add_super_aliases(&mut self.search);
+        add_super_aliases(&mut self.fuzzy);
+        add_super_aliases(&mut self.goto_line);
+        add_super_aliases(&mut self.completion);
     }
 
     /// Map a key event to a command, using the bindings for the given focus pane.
@@ -284,32 +362,33 @@ impl KeymapConfig {
             return cmd.clone();
         }
 
-        // Hardcoded character fallbacks
+        // Hardcoded character fallbacks — only plain keypresses (no modifier keys)
+        let has_modifier = event.modifiers.ctrl || event.modifiers.alt || event.modifiers.super_key;
         match focus {
             FocusPane::Editor => {
                 if let KeyCode::Char(c) = event.code {
-                    if !event.modifiers.ctrl && !event.modifiers.alt {
+                    if !has_modifier {
                         return Command::InsertChar(c);
                     }
                 }
             }
             FocusPane::SearchBar => {
                 if let KeyCode::Char(c) = event.code {
-                    if !event.modifiers.ctrl && !event.modifiers.alt {
+                    if !has_modifier {
                         return Command::SearchInput(c);
                     }
                 }
             }
             FocusPane::FuzzyFinder => {
                 if let KeyCode::Char(c) = event.code {
-                    if !event.modifiers.ctrl && !event.modifiers.alt {
+                    if !has_modifier {
                         return Command::FuzzyInput(c);
                     }
                 }
             }
             FocusPane::GoToLine => {
                 if let KeyCode::Char(c) = event.code {
-                    if !event.modifiers.ctrl && !event.modifiers.alt && c.is_ascii_digit() {
+                    if !has_modifier && c.is_ascii_digit() {
                         return Command::GoToLineInput(c);
                     }
                 }
@@ -338,12 +417,15 @@ fn parse_key_string(s: &str) -> Option<KeyEvent> {
     let mut shift = false;
     let mut alt = false;
 
+    let mut super_key = false;
+
     // All parts except the last are modifiers
     for &part in &parts[..parts.len() - 1] {
         match part.to_lowercase().as_str() {
             "ctrl" => ctrl = true,
             "shift" => shift = true,
             "alt" => alt = true,
+            "cmd" | "super" | "command" => super_key = true,
             _ => return None,
         }
     }
@@ -369,13 +451,13 @@ fn parse_key_string(s: &str) -> Option<KeyEvent> {
 
     Some(KeyEvent {
         code,
-        modifiers: Modifiers { ctrl, shift, alt },
+        modifiers: Modifiers { ctrl, shift, alt, super_key },
     })
 }
 
 // Keep the free function for backward compatibility during transition
 pub fn map_key(event: KeyEvent, focus: FocusPane) -> Command {
-    KeymapConfig::defaults().map_key(event, focus)
+    KeymapConfig::defaults(KeymapPreset::Default).map_key(event, focus)
 }
 
 #[cfg(test)]
@@ -430,7 +512,7 @@ mod tests {
 
     #[test]
     fn test_defaults_editor_ctrl_s_is_save() {
-        let config = KeymapConfig::defaults();
+        let config = KeymapConfig::defaults(KeymapPreset::Default);
         let event = KeyEvent {
             code: KeyCode::Char('s'),
             modifiers: Modifiers::ctrl(),
@@ -440,14 +522,14 @@ mod tests {
 
     #[test]
     fn test_defaults_editor_arrow_keys() {
-        let config = KeymapConfig::defaults();
+        let config = KeymapConfig::defaults(KeymapPreset::Default);
         let up = KeyEvent { code: KeyCode::Up, modifiers: Modifiers::none() };
         assert_eq!(config.map_key(up, FocusPane::Editor), Command::MoveUp);
     }
 
     #[test]
     fn test_editor_char_fallback() {
-        let config = KeymapConfig::defaults();
+        let config = KeymapConfig::defaults(KeymapPreset::Default);
         let event = KeyEvent {
             code: KeyCode::Char('x'),
             modifiers: Modifiers::none(),
@@ -457,7 +539,7 @@ mod tests {
 
     #[test]
     fn test_search_char_fallback() {
-        let config = KeymapConfig::defaults();
+        let config = KeymapConfig::defaults(KeymapPreset::Default);
         let event = KeyEvent {
             code: KeyCode::Char('a'),
             modifiers: Modifiers::none(),
@@ -467,7 +549,7 @@ mod tests {
 
     #[test]
     fn test_fuzzy_char_fallback() {
-        let config = KeymapConfig::defaults();
+        let config = KeymapConfig::defaults(KeymapPreset::Default);
         let event = KeyEvent {
             code: KeyCode::Char('m'),
             modifiers: Modifiers::none(),
@@ -477,17 +559,17 @@ mod tests {
 
     #[test]
     fn test_explorer_enter() {
-        let config = KeymapConfig::defaults();
+        let config = KeymapConfig::defaults(KeymapPreset::Default);
         let event = KeyEvent { code: KeyCode::Enter, modifiers: Modifiers::none() };
         assert_eq!(config.map_key(event, FocusPane::Explorer), Command::ExplorerEnter);
     }
 
     #[test]
     fn test_unbound_key_returns_none() {
-        let config = KeymapConfig::defaults();
+        let config = KeymapConfig::defaults(KeymapPreset::Default);
         let event = KeyEvent {
             code: KeyCode::Char('x'),
-            modifiers: Modifiers { ctrl: true, shift: true, alt: true },
+            modifiers: Modifiers { ctrl: true, shift: true, alt: true, super_key: false },
         };
         assert_eq!(config.map_key(event, FocusPane::Editor), Command::None);
     }
@@ -503,7 +585,7 @@ mod tests {
             "search": []
         }"#;
         std::fs::write(dir.path().join("keybindings.json"), json).unwrap();
-        let config = KeymapConfig::load(dir.path());
+        let config = KeymapConfig::load(dir.path(), KeymapPreset::Default);
 
         // Custom binding works
         let event = KeyEvent { code: KeyCode::Char('k'), modifiers: Modifiers::ctrl() };
@@ -517,7 +599,7 @@ mod tests {
     #[test]
     fn test_load_missing_file_uses_defaults() {
         let dir = tempfile::tempdir().unwrap();
-        let config = KeymapConfig::load(dir.path());
+        let config = KeymapConfig::load(dir.path(), KeymapPreset::Default);
         let event = KeyEvent { code: KeyCode::Char('s'), modifiers: Modifiers::ctrl() };
         assert_eq!(config.map_key(event, FocusPane::Editor), Command::Save);
     }
@@ -526,8 +608,54 @@ mod tests {
     fn test_load_malformed_json_uses_defaults() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("keybindings.json"), "not json!").unwrap();
-        let config = KeymapConfig::load(dir.path());
+        let config = KeymapConfig::load(dir.path(), KeymapPreset::Default);
         let event = KeyEvent { code: KeyCode::Char('s'), modifiers: Modifiers::ctrl() };
         assert_eq!(config.map_key(event, FocusPane::Editor), Command::Save);
+    }
+
+    #[test]
+    fn test_mac_preset_cmd_s_saves() {
+        let config = KeymapConfig::defaults(KeymapPreset::Mac);
+        // Cmd+S should map to Save
+        let event = KeyEvent { code: KeyCode::Char('s'), modifiers: Modifiers::super_key() };
+        assert_eq!(config.map_key(event, FocusPane::Editor), Command::Save);
+        // Ctrl+S should still work too
+        let event = KeyEvent { code: KeyCode::Char('s'), modifiers: Modifiers::ctrl() };
+        assert_eq!(config.map_key(event, FocusPane::Editor), Command::Save);
+    }
+
+    #[test]
+    fn test_mac_preset_cmd_bindings() {
+        let config = KeymapConfig::defaults(KeymapPreset::Mac);
+        // Cmd+P -> FuzzyOpen
+        let event = KeyEvent { code: KeyCode::Char('p'), modifiers: Modifiers::super_key() };
+        assert_eq!(config.map_key(event, FocusPane::Editor), Command::FuzzyOpen);
+        // Cmd+Z -> Undo
+        let event = KeyEvent { code: KeyCode::Char('z'), modifiers: Modifiers::super_key() };
+        assert_eq!(config.map_key(event, FocusPane::Editor), Command::Undo);
+        // Cmd+F -> SearchInFile
+        let event = KeyEvent { code: KeyCode::Char('f'), modifiers: Modifiers::super_key() };
+        assert_eq!(config.map_key(event, FocusPane::Editor), Command::SearchInFile);
+        // Cmd+Shift+F -> SearchAcrossFiles
+        let event = KeyEvent { code: KeyCode::Char('f'), modifiers: Modifiers::super_shift() };
+        assert_eq!(config.map_key(event, FocusPane::Editor), Command::SearchAcrossFiles);
+    }
+
+    #[test]
+    fn test_default_preset_no_cmd_bindings() {
+        let config = KeymapConfig::defaults(KeymapPreset::Default);
+        let event = KeyEvent { code: KeyCode::Char('s'), modifiers: Modifiers::super_key() };
+        assert_eq!(config.map_key(event, FocusPane::Editor), Command::None);
+    }
+
+    #[test]
+    fn test_parse_key_cmd() {
+        let ke = parse_key_string("cmd+s").unwrap();
+        assert_eq!(ke.code, KeyCode::Char('s'));
+        assert!(ke.modifiers.super_key);
+        assert!(!ke.modifiers.ctrl);
+
+        let ke = parse_key_string("super+f").unwrap();
+        assert!(ke.modifiers.super_key);
     }
 }

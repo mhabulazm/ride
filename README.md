@@ -139,6 +139,18 @@ Set `"theme": "monokai"` to use a built-in theme. For custom overrides on top of
 
 Colors can be named (`red`, `cyan`, `darkgray`) or hex (`#ff5733`).
 
+### Keymap Preset
+
+Set `"keymap_preset": "mac"` in `settings.json` to use Cmd (⌘) instead of Ctrl for all shortcuts. Both Cmd and Ctrl work simultaneously in mac mode.
+
+```json
+{
+  "keymap_preset": "mac"
+}
+```
+
+Custom bindings in `keybindings.json` also accept `cmd+` or `super+` as a modifier (e.g. `"cmd+s"`).
+
 ## Architecture
 
 ```
@@ -156,4 +168,4 @@ The core is decoupled from the UI, allowing a future GUI frontend (e.g. egui/ice
 cargo test
 ```
 
-125 unit tests covering buffer operations, auto-indent, word movement, bracket matching, code folding, tab management, keymap parsing and loading, search, fuzzy finder, settings, themes, and LSP message parsing.
+129 unit tests covering buffer operations, auto-indent, word movement, bracket matching, code folding, tab management, keymap parsing and loading, search, fuzzy finder, settings, themes, and LSP message parsing.

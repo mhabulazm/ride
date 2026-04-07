@@ -1,3 +1,4 @@
+use crate::keymap::KeymapPreset;
 use crate::theme::{Theme, ThemeConfig};
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -13,6 +14,9 @@ pub struct Settings {
 
     #[serde(default)]
     pub theme: Option<ThemeConfig>,
+
+    #[serde(default)]
+    pub keymap_preset: KeymapPreset,
 }
 
 impl Settings {
@@ -41,6 +45,7 @@ impl Default for Settings {
             autosave_interval_secs: default_autosave_interval(),
             lsp: HashMap::new(),
             theme: None,
+            keymap_preset: KeymapPreset::default(),
         }
     }
 }
