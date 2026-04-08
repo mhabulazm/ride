@@ -5,7 +5,7 @@
 
 A minimalist, fast, terminal-based IDE built in Rust.
 
-![ride-screenshot](https://github.com/user-attachments/assets/placeholder)
+![ride-screenshot](img/1.png)
 
 ## Highlights
 
