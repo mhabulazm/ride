@@ -1,6 +1,5 @@
 use crate::app::App;
 use crate::theme_style::{parse_color, to_style};
-use std::collections::HashMap;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
@@ -10,6 +9,7 @@ use ride_core::command::FocusPane;
 use ride_core::highlight::{self, HighlightKind};
 use ride_core::lsp::DiagnosticSeverity;
 use ride_core::theme::Theme;
+use std::collections::HashMap;
 
 pub fn render_editor(frame: &mut Frame, area: Rect, app: &mut App) {
     let theme = app.theme.clone();
@@ -44,7 +44,10 @@ pub fn render_editor(frame: &mut Frame, area: Rect, app: &mut App) {
             Line::from(""),
             Line::from(Span::styled("  RIDE — Rust IDE", title_style)),
             Line::from(""),
-            Line::from(Span::styled("  Open a file or directory to get started.", desc_style)),
+            Line::from(Span::styled(
+                "  Open a file or directory to get started.",
+                desc_style,
+            )),
             Line::from(""),
             Line::from(Span::styled("  File", section_style)),
             keybinding("Ctrl+S", "Save"),
@@ -105,16 +108,14 @@ pub fn render_editor(frame: &mut Frame, area: Rect, app: &mut App) {
     let buf = app.tabs.active_buffer().unwrap();
 
     // Bracket matching
-    let bracket_positions = buf.find_matching_bracket().map(|match_pos| {
-        ((buf.cursor_row, buf.cursor_col), match_pos)
-    });
+    let bracket_positions = buf
+        .find_matching_bracket()
+        .map(|match_pos| ((buf.cursor_row, buf.cursor_col), match_pos));
 
     // Precompute tree-sitter spans for visible lines
     let ts_spans: HashMap<usize, Vec<highlight::HighlightSpan>> = (buf.scroll_row
         ..(buf.scroll_row + viewport_h).min(buf.line_count()))
-        .filter_map(|row| {
-            app.ts_highlight_line(row).map(|spans| (row, spans))
-        })
+        .filter_map(|row| app.ts_highlight_line(row).map(|spans| (row, spans)))
         .collect();
 
     let mut visual_lines: Vec<Line> = Vec::new();
@@ -153,12 +154,15 @@ pub fn render_editor(frame: &mut Frame, area: Rect, app: &mut App) {
         // Diagnostic severity for line number coloring and gutter symbol
         let diag_severity = buf.file_path.as_ref().and_then(|p| {
             let diags = app.lsp.get_diagnostics_for_line(p, buf_row);
-            diags.into_iter().map(|d| d.severity).min_by_key(|s| match s {
-                DiagnosticSeverity::Error => 0,
-                DiagnosticSeverity::Warning => 1,
-                DiagnosticSeverity::Info => 2,
-                DiagnosticSeverity::Hint => 3,
-            })
+            diags
+                .into_iter()
+                .map(|d| d.severity)
+                .min_by_key(|s| match s {
+                    DiagnosticSeverity::Error => 0,
+                    DiagnosticSeverity::Warning => 1,
+                    DiagnosticSeverity::Info => 2,
+                    DiagnosticSeverity::Hint => 3,
+                })
         });
         let (diag_symbol, diag_symbol_style) = match diag_severity {
             Some(DiagnosticSeverity::Error) => ("● ", diag_error_style),
@@ -184,7 +188,11 @@ pub fn render_editor(frame: &mut Frame, area: Rect, app: &mut App) {
                     .get_diagnostics_for_line(p, buf_row)
                     .into_iter()
                     .map(|d| {
-                        let end = if d.end_col > d.col { d.end_col } else { d.col + 1 };
+                        let end = if d.end_col > d.col {
+                            d.end_col
+                        } else {
+                            d.col + 1
+                        };
                         (d.col, end)
                     })
                     .collect()
@@ -194,8 +202,12 @@ pub fn render_editor(frame: &mut Frame, area: Rect, app: &mut App) {
         // Bracket highlight columns for this row
         let mut bracket_cols: Vec<usize> = Vec::new();
         if let Some(((r1, c1), (r2, c2))) = bracket_positions {
-            if r1 == buf_row { bracket_cols.push(c1); }
-            if r2 == buf_row { bracket_cols.push(c2); }
+            if r1 == buf_row {
+                bracket_cols.push(c1);
+            }
+            if r2 == buf_row {
+                bracket_cols.push(c2);
+            }
         }
 
         // Syntax highlighting — build style map for full line
@@ -212,8 +224,8 @@ pub fn render_editor(frame: &mut Frame, area: Rect, app: &mut App) {
             let s = hl.start.min(end);
             let e = hl.end.min(end);
             let style = highlight_style(hl.kind, &theme);
-            for pos in s..e {
-                style_map[pos] = style;
+            for slot in style_map.iter_mut().take(e).skip(s) {
+                *slot = style;
             }
         }
 
@@ -226,8 +238,8 @@ pub fn render_editor(frame: &mut Frame, area: Rect, app: &mut App) {
         // Apply diagnostic underline styling
         for &(dstart, dend) in &diag_ranges {
             let underline_style_mod = Modifier::UNDERLINED;
-            for pos in dstart..dend.min(end) {
-                style_map[pos] = style_map[pos].add_modifier(underline_style_mod);
+            for slot in style_map.iter_mut().take(dend.min(end)).skip(dstart) {
+                *slot = slot.add_modifier(underline_style_mod);
             }
         }
 
@@ -269,10 +281,7 @@ pub fn render_editor(frame: &mut Frame, area: Rect, app: &mut App) {
                         }
                     }
 
-                    spans.push(Span::styled(
-                        format!(" ... {} lines ", hidden),
-                        fold_style,
-                    ));
+                    spans.push(Span::styled(format!(" ... {} lines ", hidden), fold_style));
 
                     // Cursor on the fold start line
                     if buf_row == buf.cursor_row {
@@ -365,9 +374,8 @@ pub fn render_editor(frame: &mut Frame, area: Rect, app: &mut App) {
                 if cursor_col >= chunk_start && cursor_col <= chunk_end {
                     // Cursor is on this visual line (or at the end of this chunk)
                     if cursor_col < chunk_end || (chunk_idx == chunks.len() - 1) {
-                        cursor_screen_x = Some(
-                            inner.x + gutter_width + 1 + (cursor_col - chunk_start) as u16,
-                        );
+                        cursor_screen_x =
+                            Some(inner.x + gutter_width + 1 + (cursor_col - chunk_start) as u16);
                         cursor_screen_y = Some(inner.y + visual_row as u16);
                     }
                 }

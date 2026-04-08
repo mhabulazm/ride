@@ -17,26 +17,13 @@ pub fn render_search(frame: &mut Frame, area: Rect, app: &App) {
     let match_info = if app.search.matches.is_empty() {
         String::new()
     } else {
-        format!(
-            " [{}/{}]",
-            app.search.current + 1,
-            app.search.matches.len()
-        )
+        format!(" [{}/{}]", app.search.current + 1, app.search.matches.len())
     };
 
     let line = Line::from(vec![
-        Span::styled(
-            format!(" {}: ", mode),
-            to_style(&theme.ui.search_label),
-        ),
-        Span::styled(
-            &app.search.query,
-            to_style(&theme.ui.search_query),
-        ),
-        Span::styled(
-            match_info,
-            to_style(&theme.ui.search_match_count),
-        ),
+        Span::styled(format!(" {}: ", mode), to_style(&theme.ui.search_label)),
+        Span::styled(&app.search.query, to_style(&theme.ui.search_query)),
+        Span::styled(match_info, to_style(&theme.ui.search_match_count)),
     ]);
 
     let paragraph = Paragraph::new(line);

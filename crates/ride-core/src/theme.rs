@@ -15,6 +15,12 @@ pub struct ColorStyle {
     pub underline: bool,
 }
 
+impl Default for ColorStyle {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ColorStyle {
     pub const fn new() -> Self {
         Self {
@@ -583,7 +589,7 @@ pub fn solarized_dark_theme() -> Theme {
 #[serde(untagged)]
 pub enum ThemeConfig {
     Name(String),
-    Custom(ThemeOverride),
+    Custom(Box<ThemeOverride>),
 }
 
 #[derive(Debug, Clone, Deserialize)]

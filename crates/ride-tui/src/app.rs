@@ -2,8 +2,8 @@ use ride_core::command::{Command, FocusPane};
 use ride_core::explorer::Explorer;
 use ride_core::folding::FoldState;
 use ride_core::fuzzy::FuzzyFinder;
-use ride_core::highlight::{self, HighlighterType};
 use ride_core::highlight::treesitter_hl::TreeSitterHighlighter;
+use ride_core::highlight::{self, HighlighterType};
 use ride_core::keymap::{self, KeymapConfig};
 use ride_core::lsp::{CompletionItem, LspManager};
 use ride_core::search::SearchState;
@@ -111,7 +111,8 @@ impl App {
                             // Initialize fold regions
                             if let Some(tree) = hl.tree() {
                                 let lang_name = hl.lang_name().to_string();
-                                if let Some(fold_state) = self.fold_states.get_mut(self.tabs.active) {
+                                if let Some(fold_state) = self.fold_states.get_mut(self.tabs.active)
+                                {
                                     fold_state.update_regions_from_tree(tree, &source, &lang_name);
                                 }
                             }
@@ -282,18 +283,15 @@ impl App {
 
             // Folding
             Command::ToggleFold => {
-                let line = self
-                    .tabs
-                    .active_buffer()
-                    .map(|b| b.cursor_row)
-                    .unwrap_or(0);
+                let line = self.tabs.active_buffer().map(|b| b.cursor_row).unwrap_or(0);
                 if let Some(fold_state) = self.fold_states.get_mut(self.tabs.active) {
                     fold_state.toggle_fold(line);
                 }
             }
             Command::FoldAll => {
                 if let Some(fold_state) = self.fold_states.get_mut(self.tabs.active) {
-                    let starts: Vec<usize> = fold_state.regions.iter().map(|r| r.start_line).collect();
+                    let starts: Vec<usize> =
+                        fold_state.regions.iter().map(|r| r.start_line).collect();
                     for s in starts {
                         fold_state.fold(s);
                     }
@@ -518,10 +516,7 @@ impl App {
             Command::CompletionConfirm => {
                 if self.completion_active {
                     if let Some(item) = self.completion_items.get(self.completion_index) {
-                        let text = item
-                            .insert_text
-                            .as_deref()
-                            .unwrap_or(&item.label);
+                        let text = item.insert_text.as_deref().unwrap_or(&item.label);
                         if let Some(buf) = self.tabs.active_buffer_mut() {
                             for c in text.chars() {
                                 buf.insert_char(c);
@@ -551,10 +546,7 @@ impl App {
                 .collect();
             self.search.search_in_buffer(&lines);
         }
-        self.status_message = format!(
-            "Found {} matches",
-            self.search.matches.len()
-        );
+        self.status_message = format!("Found {} matches", self.search.matches.len());
     }
 
     fn jump_to_match(&mut self) {
@@ -613,10 +605,7 @@ impl App {
             if tab.dirty {
                 if let Some(ref path) = tab.file_path {
                     if self.lsp.has_server_for(path) {
-                        let version = self
-                            .doc_versions
-                            .entry(path.clone())
-                            .or_insert(1);
+                        let version = self.doc_versions.entry(path.clone()).or_insert(1);
                         *version += 1;
                         let v = *version;
                         let text = tab.rope.to_string();
@@ -635,10 +624,8 @@ impl App {
         if elapsed >= self.settings.autosave_interval_secs {
             let mut saved = Vec::new();
             for tab in &mut self.tabs.tabs {
-                if tab.dirty && tab.file_path.is_some() {
-                    if tab.save().is_ok() {
-                        saved.push(tab.file_name());
-                    }
+                if tab.dirty && tab.file_path.is_some() && tab.save().is_ok() {
+                    saved.push(tab.file_name());
                 }
             }
             if !saved.is_empty() {

@@ -4,12 +4,12 @@ use crate::ui_editor::render_editor;
 use crate::ui_explorer::render_explorer;
 use crate::ui_fuzzy::render_fuzzy;
 use crate::ui_goto::render_goto_line;
-use ride_core::command::FocusPane;
 use crate::ui_search::render_search;
 use crate::ui_status::render_status;
 use crate::ui_tabs::render_tabs;
 use ratatui::layout::{Constraint, Direction, Layout};
 use ratatui::Frame;
+use ride_core::command::FocusPane;
 
 pub fn render(frame: &mut Frame, app: &mut App) {
     let size = frame.area();
@@ -17,7 +17,7 @@ pub fn render(frame: &mut Frame, app: &mut App) {
     // Main vertical layout: [tabs | content | search? | status]
     let mut vertical_constraints = vec![
         Constraint::Length(1), // tab bar
-        Constraint::Min(1),   // content area
+        Constraint::Min(1),    // content area
     ];
     if app.search.active {
         vertical_constraints.push(Constraint::Length(1)); // search bar
@@ -41,7 +41,7 @@ pub fn render(frame: &mut Frame, app: &mut App) {
             .direction(Direction::Horizontal)
             .constraints([
                 Constraint::Length(25), // explorer width
-                Constraint::Min(1),    // editor
+                Constraint::Min(1),     // editor
             ])
             .split(content_area);
 

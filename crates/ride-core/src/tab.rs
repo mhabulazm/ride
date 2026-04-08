@@ -6,6 +6,12 @@ pub struct TabManager {
     pub active: usize,
 }
 
+impl Default for TabManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TabManager {
     pub fn new() -> Self {
         Self {

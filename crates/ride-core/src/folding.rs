@@ -10,12 +10,12 @@ pub struct FoldRegion {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FoldKind {
-    Block,     // { ... }
+    Block, // { ... }
     Function,
     Class,
     Comment,
     Import,
-    Section,   // Markdown headings
+    Section, // Markdown headings
 }
 
 /// Manages fold state for a single buffer.
@@ -24,6 +24,12 @@ pub struct FoldState {
     pub regions: Vec<FoldRegion>,
     /// Set of start_lines that are currently folded.
     pub folded: BTreeSet<usize>,
+}
+
+impl Default for FoldState {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl FoldState {
@@ -95,8 +101,7 @@ impl FoldState {
         // Otherwise find innermost containing region
         self.regions
             .iter()
-            .filter(|r| r.start_line <= line && r.end_line >= line)
-            .last() // last = innermost because sorted by start, then largest first
+            .rfind(|r| r.start_line <= line && r.end_line >= line)
     }
 
     /// Check if a given line is hidden (inside a folded region, but not the start line).
@@ -129,7 +134,7 @@ impl FoldState {
 
 fn collect_fold_regions(
     node: tree_sitter::Node,
-    source: &str,
+    _source: &str,
     lang: &str,
     regions: &mut Vec<FoldRegion>,
 ) {
@@ -151,18 +156,20 @@ fn collect_fold_regions(
     // Recurse into children
     let mut cursor = node.walk();
     for child in node.children(&mut cursor) {
-        collect_fold_regions(child, source, lang, regions);
+        collect_fold_regions(child, _source, lang, regions);
     }
 }
 
 fn classify_node(node_kind: &str, lang: &str) -> Option<FoldKind> {
     match lang {
         "java" => match node_kind {
-            "class_declaration" | "interface_declaration" | "enum_declaration"
+            "class_declaration"
+            | "interface_declaration"
+            | "enum_declaration"
             | "annotation_type_declaration" => Some(FoldKind::Class),
             "method_declaration" | "constructor_declaration" => Some(FoldKind::Function),
-            "block" | "switch_block" | "class_body" | "interface_body"
-            | "enum_body" | "array_initializer" => Some(FoldKind::Block),
+            "block" | "switch_block" | "class_body" | "interface_body" | "enum_body"
+            | "array_initializer" => Some(FoldKind::Block),
             "block_comment" | "line_comment" => Some(FoldKind::Comment),
             "import_declaration" => Some(FoldKind::Import),
             _ => None,
@@ -178,7 +185,10 @@ fn classify_node(node_kind: &str, lang: &str) -> Option<FoldKind> {
             "struct_item" | "enum_item" | "impl_item" | "trait_item" | "mod_item" => {
                 Some(FoldKind::Class)
             }
-            "block" | "match_block" | "declaration_list" | "field_declaration_list"
+            "block"
+            | "match_block"
+            | "declaration_list"
+            | "field_declaration_list"
             | "enum_variant_list" => Some(FoldKind::Block),
             "block_comment" | "line_comment" => Some(FoldKind::Comment),
             "use_declaration" => Some(FoldKind::Import),
@@ -187,19 +197,21 @@ fn classify_node(node_kind: &str, lang: &str) -> Option<FoldKind> {
         "python" => match node_kind {
             "function_definition" => Some(FoldKind::Function),
             "class_definition" => Some(FoldKind::Class),
-            "block" | "if_statement" | "for_statement" | "while_statement"
-            | "try_statement" | "with_statement" | "match_statement" => Some(FoldKind::Block),
+            "block" | "if_statement" | "for_statement" | "while_statement" | "try_statement"
+            | "with_statement" | "match_statement" => Some(FoldKind::Block),
             "comment" => Some(FoldKind::Comment),
             "import_from_statement" => Some(FoldKind::Import),
             _ => None,
         },
         "typescript" | "javascript" => match node_kind {
-            "function_declaration" | "method_definition" | "arrow_function"
+            "function_declaration"
+            | "method_definition"
+            | "arrow_function"
             | "generator_function_declaration" => Some(FoldKind::Function),
             "class_declaration" | "interface_declaration" => Some(FoldKind::Class),
-            "statement_block" | "switch_body" | "object" | "array"
-            | "class_body" | "if_statement" | "for_statement" | "for_in_statement"
-            | "while_statement" | "try_statement" => Some(FoldKind::Block),
+            "statement_block" | "switch_body" | "object" | "array" | "class_body"
+            | "if_statement" | "for_statement" | "for_in_statement" | "while_statement"
+            | "try_statement" => Some(FoldKind::Block),
             "comment" | "line_comment" | "block_comment" => Some(FoldKind::Comment),
             "import_statement" => Some(FoldKind::Import),
             _ => None,
@@ -209,22 +221,28 @@ fn classify_node(node_kind: &str, lang: &str) -> Option<FoldKind> {
                 Some(FoldKind::Function)
             }
             "type_declaration" | "type_spec" => Some(FoldKind::Class),
-            "block" | "literal_value" | "interface_type" | "struct_type"
-            | "select_statement" | "switch_statement" | "if_statement"
-            | "for_statement" => Some(FoldKind::Block),
+            "block" | "literal_value" | "interface_type" | "struct_type" | "select_statement"
+            | "switch_statement" | "if_statement" | "for_statement" => Some(FoldKind::Block),
             "comment" => Some(FoldKind::Comment),
             "import_declaration" => Some(FoldKind::Import),
             _ => None,
         },
         "c" | "cpp" => match node_kind {
             "function_definition" => Some(FoldKind::Function),
-            "struct_specifier" | "class_specifier" | "enum_specifier"
-            | "union_specifier" | "namespace_definition" => Some(FoldKind::Class),
-            "compound_statement" | "field_declaration_list" | "enumerator_list"
-            | "initializer_list" | "declaration_list" | "if_statement"
-            | "for_statement" | "while_statement" | "switch_statement" => {
-                Some(FoldKind::Block)
-            }
+            "struct_specifier"
+            | "class_specifier"
+            | "enum_specifier"
+            | "union_specifier"
+            | "namespace_definition" => Some(FoldKind::Class),
+            "compound_statement"
+            | "field_declaration_list"
+            | "enumerator_list"
+            | "initializer_list"
+            | "declaration_list"
+            | "if_statement"
+            | "for_statement"
+            | "while_statement"
+            | "switch_statement" => Some(FoldKind::Block),
             "comment" | "block_comment" | "line_comment" => Some(FoldKind::Comment),
             "preproc_include" | "preproc_def" | "preproc_ifdef" => Some(FoldKind::Import),
             _ => None,

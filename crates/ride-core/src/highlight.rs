@@ -77,7 +77,9 @@ pub fn detect_highlighter(path: &Path) -> HighlighterType {
         Some("js" | "jsx") => HighlighterType::TreeSitter(TreeSitterLang::JavaScript),
         Some("go") => HighlighterType::TreeSitter(TreeSitterLang::Go),
         Some("c" | "h") => HighlighterType::TreeSitter(TreeSitterLang::C),
-        Some("cpp" | "cc" | "hpp" | "cxx" | "hxx") => HighlighterType::TreeSitter(TreeSitterLang::Cpp),
+        Some("cpp" | "cc" | "hpp" | "cxx" | "hxx") => {
+            HighlighterType::TreeSitter(TreeSitterLang::Cpp)
+        }
         Some("kt") => HighlighterType::Regex(RegexLang::Code),
         Some("md") => HighlighterType::TreeSitter(TreeSitterLang::Markdown),
         Some("proto") => HighlighterType::Regex(RegexLang::Code),

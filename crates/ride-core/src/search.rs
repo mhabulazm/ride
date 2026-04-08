@@ -19,6 +19,12 @@ pub struct SearchState {
     pub case_insensitive: bool,
 }
 
+impl Default for SearchState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SearchState {
     pub fn new() -> Self {
         Self {
@@ -88,7 +94,10 @@ impl SearchState {
                 .and_then(|e| e.to_str())
                 .map(|e| e.to_lowercase());
 
-            if !ext.as_ref().is_some_and(|e| supported.contains(&e.as_str())) {
+            if !ext
+                .as_ref()
+                .is_some_and(|e| supported.contains(&e.as_str()))
+            {
                 continue;
             }
 

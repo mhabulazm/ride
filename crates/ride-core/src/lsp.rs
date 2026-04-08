@@ -150,10 +150,7 @@ pub struct LspClient {
 }
 
 impl LspClient {
-    pub fn start(
-        config: &LspServerConfig,
-        root_path: &Path,
-    ) -> Option<Self> {
+    pub fn start(config: &LspServerConfig, root_path: &Path) -> Option<Self> {
         let mut child = Command::new(&config.command)
             .args(&config.args)
             .stdin(Stdio::piped())
@@ -171,11 +168,7 @@ impl LspClient {
         // Reader thread
         thread::spawn(move || {
             let mut reader = BufReader::new(stdout);
-            loop {
-                let msg = match decode_message(&mut reader) {
-                    Some(m) => m,
-                    None => break,
-                };
+            while let Some(msg) = decode_message(&mut reader) {
                 let parsed: Value = match serde_json::from_str(&msg) {
                     Ok(v) => v,
                     Err(_) => continue,
@@ -185,10 +178,7 @@ impl LspClient {
                 if let Some(method) = parsed.get("method").and_then(|m| m.as_str()) {
                     if method == "textDocument/publishDiagnostics" {
                         if let Some(params) = parsed.get("params") {
-                            let uri = params
-                                .get("uri")
-                                .and_then(|u| u.as_str())
-                                .unwrap_or("");
+                            let uri = params.get("uri").and_then(|u| u.as_str()).unwrap_or("");
                             let file = uri_to_path(uri);
 
                             let lsp_diags: Vec<LspDiagnostic> = params
@@ -213,10 +203,7 @@ impl LspClient {
                                 })
                                 .collect();
 
-                            let _ = tx.send(LspEvent::Diagnostics {
-                                file,
-                                diagnostics,
-                            });
+                            let _ = tx.send(LspEvent::Diagnostics { file, diagnostics });
                         }
                     }
                     continue;
@@ -615,9 +602,10 @@ fn parse_response(_id: i64, result: &Value) -> LspEvent {
                 };
             }
             // Goto definition array
-            if let (Some(uri_str), Some(range)) =
-                (first.get("uri").and_then(|u| u.as_str()), first.get("range"))
-            {
+            if let (Some(uri_str), Some(range)) = (
+                first.get("uri").and_then(|u| u.as_str()),
+                first.get("range"),
+            ) {
                 let file = uri_to_path(uri_str);
                 let line = range
                     .get("start")
@@ -696,9 +684,11 @@ fn extract_hover_text(contents: &Value) -> String {
         return arr
             .iter()
             .filter_map(|item| {
-                item.as_str()
-                    .map(|s| s.to_string())
-                    .or_else(|| item.get("value").and_then(|v| v.as_str()).map(|s| s.to_string()))
+                item.as_str().map(|s| s.to_string()).or_else(|| {
+                    item.get("value")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string())
+                })
             })
             .collect::<Vec<_>>()
             .join("\n");
@@ -886,7 +876,9 @@ mod tests {
     fn test_lsp_manager_no_config() {
         let manager = LspManager::new(HashMap::new(), Path::new("/tmp"));
         assert!(!manager.has_server_for(Path::new("test.rs")));
-        assert!(manager.get_diagnostics_for_file(Path::new("test.rs")).is_empty());
+        assert!(manager
+            .get_diagnostics_for_file(Path::new("test.rs"))
+            .is_empty());
     }
 
     #[test]

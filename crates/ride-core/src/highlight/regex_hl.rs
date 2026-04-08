@@ -4,14 +4,76 @@ use super::{HighlightKind, HighlightSpan};
 pub fn highlight_as_code(line: &str) -> Vec<HighlightSpan> {
     let mut spans = Vec::new();
     let keywords = &[
-        "public", "private", "protected", "class", "interface", "abstract", "static", "final",
-        "void", "int", "long", "double", "float", "boolean", "char", "byte", "short",
-        "return", "if", "else", "for", "while", "do", "switch", "case", "break", "continue",
-        "new", "this", "super", "try", "catch", "finally", "throw", "throws", "import", "package",
-        "fun", "val", "var", "when", "object", "companion", "data", "sealed", "override",
-        "suspend", "lateinit", "const", "null", "true", "false",
-        "syntax", "message", "service", "rpc", "returns", "repeated", "optional", "required",
-        "string", "bool", "int32", "int64", "uint32", "uint64", "bytes", "enum", "oneof", "map",
+        "public",
+        "private",
+        "protected",
+        "class",
+        "interface",
+        "abstract",
+        "static",
+        "final",
+        "void",
+        "int",
+        "long",
+        "double",
+        "float",
+        "boolean",
+        "char",
+        "byte",
+        "short",
+        "return",
+        "if",
+        "else",
+        "for",
+        "while",
+        "do",
+        "switch",
+        "case",
+        "break",
+        "continue",
+        "new",
+        "this",
+        "super",
+        "try",
+        "catch",
+        "finally",
+        "throw",
+        "throws",
+        "import",
+        "package",
+        "fun",
+        "val",
+        "var",
+        "when",
+        "object",
+        "companion",
+        "data",
+        "sealed",
+        "override",
+        "suspend",
+        "lateinit",
+        "const",
+        "null",
+        "true",
+        "false",
+        "syntax",
+        "message",
+        "service",
+        "rpc",
+        "returns",
+        "repeated",
+        "optional",
+        "required",
+        "string",
+        "bool",
+        "int32",
+        "int64",
+        "uint32",
+        "uint64",
+        "bytes",
+        "enum",
+        "oneof",
+        "map",
     ];
 
     // Check for single-line comment
@@ -87,15 +149,16 @@ pub fn highlight_as_code(line: &str) -> Vec<HighlightSpan> {
         if ch.is_ascii_digit() || (ch == '.' && num_start.is_some()) {
             if num_start.is_none() {
                 // Don't match digits that are part of identifiers
-                if idx > 0 && (line.as_bytes()[idx - 1].is_ascii_alphabetic() || line.as_bytes()[idx - 1] == b'_') {
+                if idx > 0
+                    && (line.as_bytes()[idx - 1].is_ascii_alphabetic()
+                        || line.as_bytes()[idx - 1] == b'_')
+                {
                     continue;
                 }
                 num_start = Some(idx);
             }
         } else if let Some(start) = num_start {
-            let overlaps = spans
-                .iter()
-                .any(|s| start >= s.start && start < s.end);
+            let overlaps = spans.iter().any(|s| start >= s.start && start < s.end);
             if !overlaps {
                 spans.push(HighlightSpan {
                     start,
@@ -163,11 +226,38 @@ pub fn highlight_mermaid(line: &str) -> Vec<HighlightSpan> {
     let trimmed = line.trim();
 
     let keywords = &[
-        "graph", "subgraph", "end", "flowchart", "sequenceDiagram", "classDiagram",
-        "stateDiagram", "erDiagram", "gantt", "pie", "gitGraph", "mindmap", "timeline",
-        "participant", "actor", "activate", "deactivate", "note", "loop", "alt", "opt",
-        "par", "critical", "break", "rect", "title", "section",
-        "LR", "RL", "TB", "BT", "TD",
+        "graph",
+        "subgraph",
+        "end",
+        "flowchart",
+        "sequenceDiagram",
+        "classDiagram",
+        "stateDiagram",
+        "erDiagram",
+        "gantt",
+        "pie",
+        "gitGraph",
+        "mindmap",
+        "timeline",
+        "participant",
+        "actor",
+        "activate",
+        "deactivate",
+        "note",
+        "loop",
+        "alt",
+        "opt",
+        "par",
+        "critical",
+        "break",
+        "rect",
+        "title",
+        "section",
+        "LR",
+        "RL",
+        "TB",
+        "BT",
+        "TD",
     ];
 
     // Check for comments
@@ -193,7 +283,9 @@ pub fn highlight_mermaid(line: &str) -> Vec<HighlightSpan> {
     }
 
     // Highlight arrows
-    let arrows = &["-->", "---", "-.->", "==>", "-->|", "|", "->", "<--", "<-->"];
+    let arrows = &[
+        "-->", "---", "-.->", "==>", "-->|", "|", "->", "<--", "<-->",
+    ];
     for arrow in arrows {
         let mut search_from = 0;
         while let Some(pos) = line[search_from..].find(arrow) {

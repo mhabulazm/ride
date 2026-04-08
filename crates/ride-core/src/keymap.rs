@@ -214,29 +214,50 @@ impl KeymapConfig {
         editor.insert(key('b', Modifiers::ctrl()), Command::ToggleExplorer);
         editor.insert(key('f', Modifiers::ctrl()), Command::SearchInFile);
         editor.insert(key('z', Modifiers::ctrl()), Command::Undo);
-        editor.insert(key('f', Modifiers::ctrl_shift()), Command::SearchAcrossFiles);
         editor.insert(
-            KeyEvent { code: KeyCode::PageDown, modifiers: Modifiers::ctrl() },
+            key('f', Modifiers::ctrl_shift()),
+            Command::SearchAcrossFiles,
+        );
+        editor.insert(
+            KeyEvent {
+                code: KeyCode::PageDown,
+                modifiers: Modifiers::ctrl(),
+            },
             Command::NextTab,
         );
         editor.insert(
-            KeyEvent { code: KeyCode::PageUp, modifiers: Modifiers::ctrl() },
+            KeyEvent {
+                code: KeyCode::PageUp,
+                modifiers: Modifiers::ctrl(),
+            },
             Command::PrevTab,
         );
         editor.insert(
-            KeyEvent { code: KeyCode::Left, modifiers: Modifiers::alt() },
+            KeyEvent {
+                code: KeyCode::Left,
+                modifiers: Modifiers::alt(),
+            },
             Command::PrevTab,
         );
         editor.insert(
-            KeyEvent { code: KeyCode::Right, modifiers: Modifiers::alt() },
+            KeyEvent {
+                code: KeyCode::Right,
+                modifiers: Modifiers::alt(),
+            },
             Command::NextTab,
         );
         editor.insert(
-            KeyEvent { code: KeyCode::Home, modifiers: Modifiers::ctrl() },
+            KeyEvent {
+                code: KeyCode::Home,
+                modifiers: Modifiers::ctrl(),
+            },
             Command::MoveToFileStart,
         );
         editor.insert(
-            KeyEvent { code: KeyCode::End, modifiers: Modifiers::ctrl() },
+            KeyEvent {
+                code: KeyCode::End,
+                modifiers: Modifiers::ctrl(),
+            },
             Command::MoveToFileEnd,
         );
         editor.insert(special(KeyCode::Up), Command::MoveUp);
@@ -244,11 +265,17 @@ impl KeymapConfig {
         editor.insert(special(KeyCode::Left), Command::MoveLeft);
         editor.insert(special(KeyCode::Right), Command::MoveRight);
         editor.insert(
-            KeyEvent { code: KeyCode::Left, modifiers: Modifiers::ctrl() },
+            KeyEvent {
+                code: KeyCode::Left,
+                modifiers: Modifiers::ctrl(),
+            },
             Command::MoveWordLeft,
         );
         editor.insert(
-            KeyEvent { code: KeyCode::Right, modifiers: Modifiers::ctrl() },
+            KeyEvent {
+                code: KeyCode::Right,
+                modifiers: Modifiers::ctrl(),
+            },
             Command::MoveWordRight,
         );
         editor.insert(key('g', Modifiers::ctrl()), Command::GoToLineOpen);
@@ -271,7 +298,10 @@ impl KeymapConfig {
         explorer.insert(key('q', Modifiers::ctrl()), Command::Quit);
         explorer.insert(key('b', Modifiers::ctrl()), Command::ToggleExplorer);
         explorer.insert(key('f', Modifiers::ctrl()), Command::SearchInFile);
-        explorer.insert(key('f', Modifiers::ctrl_shift()), Command::SearchAcrossFiles);
+        explorer.insert(
+            key('f', Modifiers::ctrl_shift()),
+            Command::SearchAcrossFiles,
+        );
         explorer.insert(special(KeyCode::Up), Command::ExplorerUp);
         explorer.insert(special(KeyCode::Down), Command::ExplorerDown);
         explorer.insert(special(KeyCode::Enter), Command::ExplorerEnter);
@@ -308,7 +338,14 @@ impl KeymapConfig {
         completion.insert(special(KeyCode::Up), Command::CompletionUp);
         completion.insert(special(KeyCode::Down), Command::CompletionDown);
 
-        let mut config = Self { editor, explorer, search, fuzzy, goto_line, completion };
+        let mut config = Self {
+            editor,
+            explorer,
+            search,
+            fuzzy,
+            goto_line,
+            completion,
+        };
 
         if preset == KeymapPreset::Mac {
             config.add_cmd_aliases();
@@ -403,11 +440,17 @@ impl KeymapConfig {
 // --- Helpers ---
 
 fn key(ch: char, modifiers: Modifiers) -> KeyEvent {
-    KeyEvent { code: KeyCode::Char(ch), modifiers }
+    KeyEvent {
+        code: KeyCode::Char(ch),
+        modifiers,
+    }
 }
 
 fn special(code: KeyCode) -> KeyEvent {
-    KeyEvent { code, modifiers: Modifiers::none() }
+    KeyEvent {
+        code,
+        modifiers: Modifiers::none(),
+    }
 }
 
 /// Parse a key string like "ctrl+shift+f" or "pagedown" into a KeyEvent.
@@ -451,7 +494,12 @@ fn parse_key_string(s: &str) -> Option<KeyEvent> {
 
     Some(KeyEvent {
         code,
-        modifiers: Modifiers { ctrl, shift, alt, super_key },
+        modifiers: Modifiers {
+            ctrl,
+            shift,
+            alt,
+            super_key,
+        },
     })
 }
 
@@ -523,7 +571,10 @@ mod tests {
     #[test]
     fn test_defaults_editor_arrow_keys() {
         let config = KeymapConfig::defaults(KeymapPreset::Default);
-        let up = KeyEvent { code: KeyCode::Up, modifiers: Modifiers::none() };
+        let up = KeyEvent {
+            code: KeyCode::Up,
+            modifiers: Modifiers::none(),
+        };
         assert_eq!(config.map_key(up, FocusPane::Editor), Command::MoveUp);
     }
 
@@ -534,7 +585,10 @@ mod tests {
             code: KeyCode::Char('x'),
             modifiers: Modifiers::none(),
         };
-        assert_eq!(config.map_key(event, FocusPane::Editor), Command::InsertChar('x'));
+        assert_eq!(
+            config.map_key(event, FocusPane::Editor),
+            Command::InsertChar('x')
+        );
     }
 
     #[test]
@@ -544,7 +598,10 @@ mod tests {
             code: KeyCode::Char('a'),
             modifiers: Modifiers::none(),
         };
-        assert_eq!(config.map_key(event, FocusPane::SearchBar), Command::SearchInput('a'));
+        assert_eq!(
+            config.map_key(event, FocusPane::SearchBar),
+            Command::SearchInput('a')
+        );
     }
 
     #[test]
@@ -554,14 +611,23 @@ mod tests {
             code: KeyCode::Char('m'),
             modifiers: Modifiers::none(),
         };
-        assert_eq!(config.map_key(event, FocusPane::FuzzyFinder), Command::FuzzyInput('m'));
+        assert_eq!(
+            config.map_key(event, FocusPane::FuzzyFinder),
+            Command::FuzzyInput('m')
+        );
     }
 
     #[test]
     fn test_explorer_enter() {
         let config = KeymapConfig::defaults(KeymapPreset::Default);
-        let event = KeyEvent { code: KeyCode::Enter, modifiers: Modifiers::none() };
-        assert_eq!(config.map_key(event, FocusPane::Explorer), Command::ExplorerEnter);
+        let event = KeyEvent {
+            code: KeyCode::Enter,
+            modifiers: Modifiers::none(),
+        };
+        assert_eq!(
+            config.map_key(event, FocusPane::Explorer),
+            Command::ExplorerEnter
+        );
     }
 
     #[test]
@@ -569,7 +635,12 @@ mod tests {
         let config = KeymapConfig::defaults(KeymapPreset::Default);
         let event = KeyEvent {
             code: KeyCode::Char('x'),
-            modifiers: Modifiers { ctrl: true, shift: true, alt: true, super_key: false },
+            modifiers: Modifiers {
+                ctrl: true,
+                shift: true,
+                alt: true,
+                super_key: false,
+            },
         };
         assert_eq!(config.map_key(event, FocusPane::Editor), Command::None);
     }
@@ -588,11 +659,17 @@ mod tests {
         let config = KeymapConfig::load(dir.path(), KeymapPreset::Default);
 
         // Custom binding works
-        let event = KeyEvent { code: KeyCode::Char('k'), modifiers: Modifiers::ctrl() };
+        let event = KeyEvent {
+            code: KeyCode::Char('k'),
+            modifiers: Modifiers::ctrl(),
+        };
         assert_eq!(config.map_key(event, FocusPane::Editor), Command::Save);
 
         // Default binding still works
-        let event = KeyEvent { code: KeyCode::Up, modifiers: Modifiers::none() };
+        let event = KeyEvent {
+            code: KeyCode::Up,
+            modifiers: Modifiers::none(),
+        };
         assert_eq!(config.map_key(event, FocusPane::Editor), Command::MoveUp);
     }
 
@@ -600,7 +677,10 @@ mod tests {
     fn test_load_missing_file_uses_defaults() {
         let dir = tempfile::tempdir().unwrap();
         let config = KeymapConfig::load(dir.path(), KeymapPreset::Default);
-        let event = KeyEvent { code: KeyCode::Char('s'), modifiers: Modifiers::ctrl() };
+        let event = KeyEvent {
+            code: KeyCode::Char('s'),
+            modifiers: Modifiers::ctrl(),
+        };
         assert_eq!(config.map_key(event, FocusPane::Editor), Command::Save);
     }
 
@@ -609,7 +689,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("keybindings.json"), "not json!").unwrap();
         let config = KeymapConfig::load(dir.path(), KeymapPreset::Default);
-        let event = KeyEvent { code: KeyCode::Char('s'), modifiers: Modifiers::ctrl() };
+        let event = KeyEvent {
+            code: KeyCode::Char('s'),
+            modifiers: Modifiers::ctrl(),
+        };
         assert_eq!(config.map_key(event, FocusPane::Editor), Command::Save);
     }
 
@@ -617,10 +700,16 @@ mod tests {
     fn test_mac_preset_cmd_s_saves() {
         let config = KeymapConfig::defaults(KeymapPreset::Mac);
         // Cmd+S should map to Save
-        let event = KeyEvent { code: KeyCode::Char('s'), modifiers: Modifiers::super_key() };
+        let event = KeyEvent {
+            code: KeyCode::Char('s'),
+            modifiers: Modifiers::super_key(),
+        };
         assert_eq!(config.map_key(event, FocusPane::Editor), Command::Save);
         // Ctrl+S should still work too
-        let event = KeyEvent { code: KeyCode::Char('s'), modifiers: Modifiers::ctrl() };
+        let event = KeyEvent {
+            code: KeyCode::Char('s'),
+            modifiers: Modifiers::ctrl(),
+        };
         assert_eq!(config.map_key(event, FocusPane::Editor), Command::Save);
     }
 
@@ -628,23 +717,44 @@ mod tests {
     fn test_mac_preset_cmd_bindings() {
         let config = KeymapConfig::defaults(KeymapPreset::Mac);
         // Cmd+P -> FuzzyOpen
-        let event = KeyEvent { code: KeyCode::Char('p'), modifiers: Modifiers::super_key() };
+        let event = KeyEvent {
+            code: KeyCode::Char('p'),
+            modifiers: Modifiers::super_key(),
+        };
         assert_eq!(config.map_key(event, FocusPane::Editor), Command::FuzzyOpen);
         // Cmd+Z -> Undo
-        let event = KeyEvent { code: KeyCode::Char('z'), modifiers: Modifiers::super_key() };
+        let event = KeyEvent {
+            code: KeyCode::Char('z'),
+            modifiers: Modifiers::super_key(),
+        };
         assert_eq!(config.map_key(event, FocusPane::Editor), Command::Undo);
         // Cmd+F -> SearchInFile
-        let event = KeyEvent { code: KeyCode::Char('f'), modifiers: Modifiers::super_key() };
-        assert_eq!(config.map_key(event, FocusPane::Editor), Command::SearchInFile);
+        let event = KeyEvent {
+            code: KeyCode::Char('f'),
+            modifiers: Modifiers::super_key(),
+        };
+        assert_eq!(
+            config.map_key(event, FocusPane::Editor),
+            Command::SearchInFile
+        );
         // Cmd+Shift+F -> SearchAcrossFiles
-        let event = KeyEvent { code: KeyCode::Char('f'), modifiers: Modifiers::super_shift() };
-        assert_eq!(config.map_key(event, FocusPane::Editor), Command::SearchAcrossFiles);
+        let event = KeyEvent {
+            code: KeyCode::Char('f'),
+            modifiers: Modifiers::super_shift(),
+        };
+        assert_eq!(
+            config.map_key(event, FocusPane::Editor),
+            Command::SearchAcrossFiles
+        );
     }
 
     #[test]
     fn test_default_preset_no_cmd_bindings() {
         let config = KeymapConfig::defaults(KeymapPreset::Default);
-        let event = KeyEvent { code: KeyCode::Char('s'), modifiers: Modifiers::super_key() };
+        let event = KeyEvent {
+            code: KeyCode::Char('s'),
+            modifiers: Modifiers::super_key(),
+        };
         assert_eq!(config.map_key(event, FocusPane::Editor), Command::None);
     }
 

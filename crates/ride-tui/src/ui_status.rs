@@ -9,10 +9,7 @@ use ratatui::Frame;
 pub fn render_status(frame: &mut Frame, area: Rect, app: &App) {
     let theme = &app.theme;
 
-    let mut spans = vec![Span::styled(
-        " RIDE ",
-        to_style(&theme.ui.status_label),
-    )];
+    let mut spans = vec![Span::styled(" RIDE ", to_style(&theme.ui.status_label))];
 
     if let Some(buf) = app.tabs.active_buffer() {
         let file_name = buf.file_name();
@@ -33,15 +30,16 @@ pub fn render_status(frame: &mut Frame, area: Rect, app: &App) {
             let diags = app.lsp.get_diagnostics_for_line(path, buf.cursor_row);
             if let Some(d) = diags.first() {
                 let style = match d.severity {
-                    ride_core::lsp::DiagnosticSeverity::Error => to_style(&theme.ui.diagnostic_error),
-                    ride_core::lsp::DiagnosticSeverity::Warning => to_style(&theme.ui.diagnostic_warning),
+                    ride_core::lsp::DiagnosticSeverity::Error => {
+                        to_style(&theme.ui.diagnostic_error)
+                    }
+                    ride_core::lsp::DiagnosticSeverity::Warning => {
+                        to_style(&theme.ui.diagnostic_warning)
+                    }
                     ride_core::lsp::DiagnosticSeverity::Info => to_style(&theme.ui.diagnostic_info),
                     ride_core::lsp::DiagnosticSeverity::Hint => to_style(&theme.ui.diagnostic_hint),
                 };
-                spans.push(Span::styled(
-                    format!("  {} ", d.message),
-                    style,
-                ));
+                spans.push(Span::styled(format!("  {} ", d.message), style));
             }
         }
     }

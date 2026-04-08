@@ -72,7 +72,14 @@ impl TreeSitterHighlighter {
         let line_end_byte = line_start_byte + line_text.len();
 
         let mut spans = Vec::new();
-        self.collect_spans(root, source, line_start_byte, line_end_byte, None, &mut spans);
+        self.collect_spans(
+            root,
+            source,
+            line_start_byte,
+            line_end_byte,
+            None,
+            &mut spans,
+        );
         spans
     }
 
@@ -111,7 +118,14 @@ impl TreeSitterHighlighter {
         let current_kind = node.kind();
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
-            self.collect_spans(child, source, line_start, line_end, Some(current_kind), spans);
+            self.collect_spans(
+                child,
+                source,
+                line_start,
+                line_end,
+                Some(current_kind),
+                spans,
+            );
         }
     }
 
@@ -132,9 +146,7 @@ impl TreeSitterHighlighter {
                 self.js_ts_highlight(node_kind, parent_kind)
             }
             TreeSitterLang::Go => self.go_highlight(node_kind, parent_kind),
-            TreeSitterLang::C | TreeSitterLang::Cpp => {
-                self.c_cpp_highlight(node_kind, parent_kind)
-            }
+            TreeSitterLang::C | TreeSitterLang::Cpp => self.c_cpp_highlight(node_kind, parent_kind),
         }
     }
 
@@ -144,39 +156,40 @@ impl TreeSitterHighlighter {
             "line_comment" | "block_comment" | "comment" => HighlightKind::Comment,
 
             // Strings
-            "string_literal" | "character_literal" | "string_content"
-            | "multiline_string_literal" | "string_fragment" | "\"" => {
-                if parent_kind == Some("string_literal")
-                    || parent_kind == Some("character_literal")
-                    || parent_kind == Some("multiline_string_literal")
-                {
-                    HighlightKind::String
-                } else if node_kind == "\"" {
-                    HighlightKind::String
-                } else {
-                    HighlightKind::String
-                }
-            }
+            "string_literal"
+            | "character_literal"
+            | "string_content"
+            | "multiline_string_literal"
+            | "string_fragment"
+            | "\"" => HighlightKind::String,
 
             // Numbers
-            "decimal_integer_literal" | "hex_integer_literal" | "octal_integer_literal"
-            | "binary_integer_literal" | "decimal_floating_point_literal"
-            | "hex_floating_point_literal" | "integer_literal" | "long_literal"
+            "decimal_integer_literal"
+            | "hex_integer_literal"
+            | "octal_integer_literal"
+            | "binary_integer_literal"
+            | "decimal_floating_point_literal"
+            | "hex_floating_point_literal"
+            | "integer_literal"
+            | "long_literal"
             | "real_literal" => HighlightKind::Number,
 
             // Keywords
-            "public" | "private" | "protected" | "static" | "final" | "abstract"
-            | "class" | "interface" | "extends" | "implements" | "return" | "if" | "else"
-            | "for" | "while" | "do" | "switch" | "case" | "break" | "continue" | "new"
-            | "try" | "catch" | "finally" | "throw" | "throws" | "import" | "package"
-            | "void" | "this" | "super" | "null" | "true" | "false" | "default"
-            | "synchronized" | "volatile" | "transient" | "native" | "strictfp"
-            | "instanceof" | "enum" | "assert" | "yield" | "record" | "sealed"
-            | "permits" | "non-sealed" => HighlightKind::Keyword,
+            "public" | "private" | "protected" | "static" | "final" | "abstract" | "class"
+            | "interface" | "extends" | "implements" | "return" | "if" | "else" | "for"
+            | "while" | "do" | "switch" | "case" | "break" | "continue" | "new" | "try"
+            | "catch" | "finally" | "throw" | "throws" | "import" | "package" | "void" | "this"
+            | "super" | "null" | "true" | "false" | "default" | "synchronized" | "volatile"
+            | "transient" | "native" | "strictfp" | "instanceof" | "enum" | "assert" | "yield"
+            | "record" | "sealed" | "permits" | "non-sealed" => HighlightKind::Keyword,
 
             // Type identifiers — scope-aware
-            "type_identifier" | "integral_type" | "floating_point_type"
-            | "boolean_type" | "void_type" | "generic_type" => HighlightKind::Type,
+            "type_identifier"
+            | "integral_type"
+            | "floating_point_type"
+            | "boolean_type"
+            | "void_type"
+            | "generic_type" => HighlightKind::Type,
 
             // Identifiers — classified by parent context
             "identifier" => match parent_kind {
@@ -187,14 +200,16 @@ impl TreeSitterHighlighter {
                 // Method name in invocation
                 Some("method_invocation") => HighlightKind::Function,
                 // Class/interface name in declaration
-                Some("class_declaration") | Some("interface_declaration")
+                Some("class_declaration")
+                | Some("interface_declaration")
                 | Some("enum_declaration") => HighlightKind::Type,
                 // Annotation name
                 Some("annotation") | Some("marker_annotation") => HighlightKind::Keyword,
                 // Field access
                 Some("field_access") => HighlightKind::Variable,
                 // Formal parameter
-                Some("formal_parameter") | Some("catch_formal_parameter")
+                Some("formal_parameter")
+                | Some("catch_formal_parameter")
                 | Some("spread_parameter") => HighlightKind::Variable,
                 // Variable declarator
                 Some("variable_declarator") => HighlightKind::Variable,
@@ -206,16 +221,12 @@ impl TreeSitterHighlighter {
             "@" => HighlightKind::Keyword,
 
             // Operators
-            "+" | "-" | "*" | "/" | "%" | "=" | "==" | "!=" | "<" | ">" | "<=" | ">="
-            | "&&" | "||" | "!" | "&" | "|" | "^" | "~" | "<<" | ">>" | ">>>" | "+="
-            | "-=" | "*=" | "/=" | "->" | "=>" | "++" | "--" | "?" | ":" => {
-                HighlightKind::Operator
-            }
+            "+" | "-" | "*" | "/" | "%" | "=" | "==" | "!=" | "<" | ">" | "<=" | ">=" | "&&"
+            | "||" | "!" | "&" | "|" | "^" | "~" | "<<" | ">>" | ">>>" | "+=" | "-=" | "*="
+            | "/=" | "->" | "=>" | "++" | "--" | "?" | ":" => HighlightKind::Operator,
 
             // Punctuation
-            "(" | ")" | "{" | "}" | "[" | "]" | ";" | "," | "." => {
-                HighlightKind::Punctuation
-            }
+            "(" | ")" | "{" | "}" | "[" | "]" | ";" | "," | "." => HighlightKind::Punctuation,
 
             _ => HighlightKind::Normal,
         }
@@ -228,10 +239,16 @@ impl TreeSitterHighlighter {
             | "atx_h6_marker" => HighlightKind::Heading,
             "link" | "uri_autolink" | "link_destination" | "link_text" => HighlightKind::Link,
             "emphasis" | "strong_emphasis" => HighlightKind::Emphasis,
-            "code_span" | "code_fence_content" | "fenced_code_block"
-            | "info_string" | "code_span_delimiter" => HighlightKind::String,
-            "list_marker_dot" | "list_marker_minus" | "list_marker_plus"
-            | "list_marker_star" | "list_marker_parenthesis" => HighlightKind::Operator,
+            "code_span"
+            | "code_fence_content"
+            | "fenced_code_block"
+            | "info_string"
+            | "code_span_delimiter" => HighlightKind::String,
+            "list_marker_dot"
+            | "list_marker_minus"
+            | "list_marker_plus"
+            | "list_marker_star"
+            | "list_marker_parenthesis" => HighlightKind::Operator,
             "block_quote_marker" => HighlightKind::Comment,
             "thematic_break" => HighlightKind::Punctuation,
             _ => HighlightKind::Normal,
@@ -261,7 +278,8 @@ impl TreeSitterHighlighter {
                 Some("function_item") | Some("call_expression") => HighlightKind::Function,
                 Some("struct_item") | Some("enum_item") | Some("type_item")
                 | Some("trait_item") | Some("impl_item") => HighlightKind::Type,
-                Some("field_expression") | Some("field_declaration")
+                Some("field_expression")
+                | Some("field_declaration")
                 | Some("field_initializer") => HighlightKind::Variable,
                 Some("parameter") | Some("let_declaration") => HighlightKind::Variable,
                 _ => HighlightKind::Normal,
@@ -269,15 +287,11 @@ impl TreeSitterHighlighter {
 
             "attribute_item" | "meta_item" => HighlightKind::Keyword,
 
-            "+" | "-" | "*" | "/" | "%" | "=" | "==" | "!=" | "<" | ">" | "<=" | ">="
-            | "&&" | "||" | "!" | "&" | "|" | "^" | "~" | "<<" | ">>" | "+=" | "-="
-            | "*=" | "/=" | "->" | "=>" | ".." | "..=" | "::" | "?" => {
-                HighlightKind::Operator
-            }
+            "+" | "-" | "*" | "/" | "%" | "=" | "==" | "!=" | "<" | ">" | "<=" | ">=" | "&&"
+            | "||" | "!" | "&" | "|" | "^" | "~" | "<<" | ">>" | "+=" | "-=" | "*=" | "/="
+            | "->" | "=>" | ".." | "..=" | "::" | "?" => HighlightKind::Operator,
 
-            "(" | ")" | "{" | "}" | "[" | "]" | ";" | "," | "." | ":" => {
-                HighlightKind::Punctuation
-            }
+            "(" | ")" | "{" | "}" | "[" | "]" | ";" | "," | "." | ":" => HighlightKind::Punctuation,
 
             _ => HighlightKind::Normal,
         }
@@ -287,16 +301,16 @@ impl TreeSitterHighlighter {
         match node_kind {
             "comment" => HighlightKind::Comment,
 
-            "string" | "string_start" | "string_end" | "string_content"
-            | "escape_sequence" | "interpolation" => HighlightKind::String,
+            "string" | "string_start" | "string_end" | "string_content" | "escape_sequence"
+            | "interpolation" => HighlightKind::String,
 
             "integer" | "float" => HighlightKind::Number,
 
             "and" | "as" | "assert" | "async" | "await" | "break" | "class" | "continue"
             | "def" | "del" | "elif" | "else" | "except" | "finally" | "for" | "from"
-            | "global" | "if" | "import" | "in" | "is" | "lambda" | "nonlocal" | "not"
-            | "or" | "pass" | "raise" | "return" | "try" | "while" | "with" | "yield"
-            | "True" | "False" | "None" => HighlightKind::Keyword,
+            | "global" | "if" | "import" | "in" | "is" | "lambda" | "nonlocal" | "not" | "or"
+            | "pass" | "raise" | "return" | "try" | "while" | "with" | "yield" | "True"
+            | "False" | "None" => HighlightKind::Keyword,
 
             "type" => HighlightKind::Type,
 
@@ -308,13 +322,11 @@ impl TreeSitterHighlighter {
                 _ => HighlightKind::Normal,
             },
 
-            "+" | "-" | "*" | "/" | "%" | "=" | "==" | "!=" | "<" | ">" | "<=" | ">="
-            | "**" | "//" | "+=" | "-=" | "*=" | "/=" | "@" | "->" | ":=" | "|" | "&"
-            | "^" | "~" | "<<" | ">>" => HighlightKind::Operator,
+            "+" | "-" | "*" | "/" | "%" | "=" | "==" | "!=" | "<" | ">" | "<=" | ">=" | "**"
+            | "//" | "+=" | "-=" | "*=" | "/=" | "@" | "->" | ":=" | "|" | "&" | "^" | "~"
+            | "<<" | ">>" => HighlightKind::Operator,
 
-            "(" | ")" | "{" | "}" | "[" | "]" | ":" | "," | "." | ";" => {
-                HighlightKind::Punctuation
-            }
+            "(" | ")" | "{" | "}" | "[" | "]" | ":" | "," | "." | ";" => HighlightKind::Punctuation,
 
             _ => HighlightKind::Normal,
         }
@@ -325,8 +337,9 @@ impl TreeSitterHighlighter {
             "comment" | "line_comment" | "block_comment" => HighlightKind::Comment,
 
             "string" | "string_fragment" | "template_string" | "template_literal"
-            | "escape_sequence" | "\"" | "'" | "`" | "regex_pattern" | "regex"
-            | "regex_flags" => HighlightKind::String,
+            | "escape_sequence" | "\"" | "'" | "`" | "regex_pattern" | "regex" | "regex_flags" => {
+                HighlightKind::String
+            }
 
             "number" | "integer" | "float" => HighlightKind::Number,
 
@@ -343,25 +356,30 @@ impl TreeSitterHighlighter {
 
             "type_identifier" | "predefined_type" | "builtin_type" => HighlightKind::Type,
 
-            "identifier" | "property_identifier" | "shorthand_property_identifier"
+            "identifier"
+            | "property_identifier"
+            | "shorthand_property_identifier"
             | "shorthand_property_identifier_pattern" => match parent_kind {
-                Some("function_declaration") | Some("method_definition")
-                | Some("call_expression") | Some("new_expression") => HighlightKind::Function,
-                Some("class_declaration") | Some("interface_declaration")
+                Some("function_declaration")
+                | Some("method_definition")
+                | Some("call_expression")
+                | Some("new_expression") => HighlightKind::Function,
+                Some("class_declaration")
+                | Some("interface_declaration")
                 | Some("type_alias_declaration") => HighlightKind::Type,
-                Some("formal_parameters") | Some("required_parameter")
+                Some("formal_parameters")
+                | Some("required_parameter")
                 | Some("optional_parameter") => HighlightKind::Variable,
                 _ => HighlightKind::Normal,
             },
 
-            "+" | "-" | "*" | "/" | "%" | "=" | "==" | "===" | "!=" | "!==" | "<" | ">"
-            | "<=" | ">=" | "&&" | "||" | "!" | "&" | "|" | "^" | "~" | "<<" | ">>"
-            | ">>>" | "+=" | "-=" | "*=" | "/=" | "->" | "=>" | "++" | "--" | "?"
-            | "?." | "??" | "..." => HighlightKind::Operator,
-
-            "(" | ")" | "{" | "}" | "[" | "]" | ";" | "," | "." | ":" => {
-                HighlightKind::Punctuation
+            "+" | "-" | "*" | "/" | "%" | "=" | "==" | "===" | "!=" | "!==" | "<" | ">" | "<="
+            | ">=" | "&&" | "||" | "!" | "&" | "|" | "^" | "~" | "<<" | ">>" | ">>>" | "+="
+            | "-=" | "*=" | "/=" | "->" | "=>" | "++" | "--" | "?" | "?." | "??" | "..." => {
+                HighlightKind::Operator
             }
+
+            "(" | ")" | "{" | "}" | "[" | "]" | ";" | "," | "." | ":" => HighlightKind::Punctuation,
 
             _ => HighlightKind::Normal,
         }
@@ -371,36 +389,38 @@ impl TreeSitterHighlighter {
         match node_kind {
             "comment" => HighlightKind::Comment,
 
-            "raw_string_literal" | "interpreted_string_literal" | "rune_literal"
-            | "escape_sequence" | "\"" | "`" => HighlightKind::String,
+            "raw_string_literal"
+            | "interpreted_string_literal"
+            | "rune_literal"
+            | "escape_sequence"
+            | "\""
+            | "`" => HighlightKind::String,
 
             "int_literal" | "float_literal" | "imaginary_literal" => HighlightKind::Number,
 
             "break" | "case" | "chan" | "const" | "continue" | "default" | "defer" | "else"
-            | "fallthrough" | "for" | "func" | "go" | "goto" | "if" | "import"
-            | "interface" | "map" | "package" | "range" | "return" | "select" | "struct"
-            | "switch" | "type" | "var" | "nil" | "true" | "false" | "iota" => {
-                HighlightKind::Keyword
-            }
+            | "fallthrough" | "for" | "func" | "go" | "goto" | "if" | "import" | "interface"
+            | "map" | "package" | "range" | "return" | "select" | "struct" | "switch" | "type"
+            | "var" | "nil" | "true" | "false" | "iota" => HighlightKind::Keyword,
 
             "type_identifier" => HighlightKind::Type,
 
             "identifier" | "field_identifier" => match parent_kind {
-                Some("function_declaration") | Some("method_declaration")
+                Some("function_declaration")
+                | Some("method_declaration")
                 | Some("call_expression") => HighlightKind::Function,
                 Some("type_spec") | Some("type_declaration") => HighlightKind::Type,
-                Some("field_declaration") | Some("parameter_declaration")
+                Some("field_declaration")
+                | Some("parameter_declaration")
                 | Some("short_var_declaration") => HighlightKind::Variable,
                 _ => HighlightKind::Normal,
             },
 
-            "+" | "-" | "*" | "/" | "%" | "=" | "==" | "!=" | "<" | ">" | "<=" | ">="
-            | "&&" | "||" | "!" | "&" | "|" | "^" | "<<" | ">>" | "&^" | "+=" | "-="
-            | "*=" | "/=" | ":=" | "<-" | "++" | "--" => HighlightKind::Operator,
+            "+" | "-" | "*" | "/" | "%" | "=" | "==" | "!=" | "<" | ">" | "<=" | ">=" | "&&"
+            | "||" | "!" | "&" | "|" | "^" | "<<" | ">>" | "&^" | "+=" | "-=" | "*=" | "/="
+            | ":=" | "<-" | "++" | "--" => HighlightKind::Operator,
 
-            "(" | ")" | "{" | "}" | "[" | "]" | ";" | "," | "." | ":" => {
-                HighlightKind::Punctuation
-            }
+            "(" | ")" | "{" | "}" | "[" | "]" | ";" | "," | "." | ":" => HighlightKind::Punctuation,
 
             _ => HighlightKind::Normal,
         }

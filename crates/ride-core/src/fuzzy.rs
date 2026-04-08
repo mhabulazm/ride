@@ -110,7 +110,12 @@ pub fn fuzzy_score(query: &str, target: &str) -> Option<i64> {
                     }
                 }
                 // Bonus for matching at word boundaries (after / or . or start)
-                if idx == 0 || matches!(target.as_bytes().get(idx - 1), Some(b'/' | b'\\' | b'.' | b'_' | b'-')) {
+                if idx == 0
+                    || matches!(
+                        target.as_bytes().get(idx - 1),
+                        Some(b'/' | b'\\' | b'.' | b'_' | b'-')
+                    )
+                {
                     score += 5;
                 }
                 score += 1;
@@ -248,7 +253,11 @@ mod tests {
 
         finder.input('p');
         // "ap" matches "apple.txt"
-        assert!(finder.filtered.iter().any(|p| p.file_name().unwrap().to_string_lossy().contains("apple")));
+        assert!(finder.filtered.iter().any(|p| p
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .contains("apple")));
     }
 
     #[test]
@@ -302,7 +311,11 @@ mod tests {
         std::fs::write(dir.path().join("visible.txt"), "").unwrap();
         let files = collect_files(dir.path());
         assert_eq!(files.len(), 1);
-        assert!(files[0].file_name().unwrap().to_string_lossy().contains("visible"));
+        assert!(files[0]
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .contains("visible"));
     }
 
     #[test]
