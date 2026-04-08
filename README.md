@@ -1,6 +1,6 @@
 # RIDE
 
-[![CI](https://github.com/moabulazm/ride/actions/workflows/ci.yml/badge.svg)](https://github.com/moabulazm/ride/actions/workflows/ci.yml)
+[![CI](https://github.com/mhabulazm/ride/actions/workflows/ci.yml/badge.svg)](https://github.com/mhabulazm/ride/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 A minimalist, fast, terminal-based IDE built in Rust.
@@ -20,7 +20,7 @@ A minimalist, fast, terminal-based IDE built in Rust.
 ### From source
 
 ```bash
-git clone https://github.com/moabulazm/ride.git
+git clone https://github.com/mhabulazm/ride.git
 cd ride
 cargo install --path crates/ride-tui
 ```
