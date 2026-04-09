@@ -1,3 +1,4 @@
+use crate::lsp::TextEdit;
 use ropey::Rope;
 use std::fs::File;
 use std::io::BufReader;
@@ -290,6 +291,41 @@ impl Buffer {
     fn char_index_at_cursor(&self) -> usize {
         let line_start = self.rope.line_to_char(self.cursor_row);
         line_start + self.cursor_col
+    }
+
+    pub fn apply_text_edits(&mut self, edits: &[TextEdit]) {
+        if edits.is_empty() {
+            return;
+        }
+        self.save_undo();
+        // Sort edits in reverse document order to preserve positions
+        let mut sorted: Vec<&TextEdit> = edits.iter().collect();
+        sorted.sort_by(|a, b| {
+            b.range
+                .start
+                .line
+                .cmp(&a.range.start.line)
+                .then(b.range.start.character.cmp(&a.range.start.character))
+        });
+        for edit in sorted {
+            let start_line = edit.range.start.line as usize;
+            let end_line = edit.range.end.line as usize;
+            if start_line >= self.rope.len_lines() {
+                continue;
+            }
+            let start = self.rope.line_to_char(start_line) + edit.range.start.character as usize;
+            let end_line_clamped = end_line.min(self.rope.len_lines().saturating_sub(1));
+            let end = self.rope.line_to_char(end_line_clamped) + edit.range.end.character as usize;
+            let end = end.min(self.rope.len_chars());
+            let start = start.min(self.rope.len_chars());
+            if start < end {
+                self.rope.remove(start..end);
+            }
+            if !edit.new_text.is_empty() {
+                self.rope.insert(start, &edit.new_text);
+            }
+        }
+        self.dirty = true;
     }
 
     pub fn file_name(&self) -> String {

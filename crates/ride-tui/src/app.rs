@@ -5,7 +5,7 @@ use ride_core::fuzzy::FuzzyFinder;
 use ride_core::highlight::treesitter_hl::TreeSitterHighlighter;
 use ride_core::highlight::{self, HighlighterType};
 use ride_core::keymap::{self, KeymapConfig};
-use ride_core::lsp::{CompletionItem, LspManager};
+use ride_core::lsp::{CodeAction, CompletionItem, LspManager, ReferenceLocation};
 use ride_core::search::SearchState;
 use ride_core::settings::Settings;
 use ride_core::tab::TabManager;
@@ -35,8 +35,24 @@ pub struct App {
     pub completion_items: Vec<CompletionItem>,
     pub completion_index: usize,
     pub completion_active: bool,
+    pub code_action_items: Vec<CodeAction>,
+    pub code_action_index: usize,
+    pub code_action_active: bool,
+    pub reference_locations: Vec<ReferenceLocation>,
+    pub reference_index: usize,
+    pub reference_active: bool,
+    pub explorer_input: String,
+    pub explorer_input_mode: Option<ExplorerInputMode>,
     pub theme: Theme,
     doc_versions: std::collections::HashMap<PathBuf, i32>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExplorerInputMode {
+    NewFile,
+    NewFolder,
+    Rename,
+    ConfirmDelete,
 }
 
 impl App {
@@ -76,6 +92,14 @@ impl App {
             completion_items: Vec::new(),
             completion_index: 0,
             completion_active: false,
+            code_action_items: Vec::new(),
+            code_action_index: 0,
+            code_action_active: false,
+            reference_locations: Vec::new(),
+            reference_index: 0,
+            reference_active: false,
+            explorer_input: String::new(),
+            explorer_input_mode: None,
             theme,
             doc_versions: std::collections::HashMap::new(),
         };
@@ -533,6 +557,189 @@ impl App {
                 self.completion_items.clear();
                 self.focus = FocusPane::Editor;
             }
+
+            // LSP Code Actions
+            Command::LspCodeAction => {
+                if let Some(buf) = self.tabs.active_buffer() {
+                    if let Some(ref path) = buf.file_path.clone() {
+                        let row = buf.cursor_row as u32;
+                        let col = buf.cursor_col as u32;
+                        let diags_json = serde_json::json!([]);
+                        self.lsp.request_code_actions(path, row, col, diags_json);
+                    }
+                }
+            }
+            Command::CodeActionUp => {
+                if self.code_action_active && !self.code_action_items.is_empty() {
+                    if self.code_action_index > 0 {
+                        self.code_action_index -= 1;
+                    } else {
+                        self.code_action_index = self.code_action_items.len() - 1;
+                    }
+                }
+            }
+            Command::CodeActionDown => {
+                if self.code_action_active && !self.code_action_items.is_empty() {
+                    self.code_action_index =
+                        (self.code_action_index + 1) % self.code_action_items.len();
+                }
+            }
+            Command::CodeActionConfirm => {
+                if self.code_action_active {
+                    if let Some(action) = self.code_action_items.get(self.code_action_index).cloned()
+                    {
+                        if let Some(ref edit) = action.edit {
+                            self.apply_workspace_edit(edit);
+                        }
+                    }
+                    self.code_action_active = false;
+                    self.code_action_items.clear();
+                    self.focus = FocusPane::Editor;
+                }
+            }
+            Command::CodeActionClose => {
+                self.code_action_active = false;
+                self.code_action_items.clear();
+                self.focus = FocusPane::Editor;
+            }
+
+            // LSP Find References
+            Command::LspFindReferences => {
+                if let Some(buf) = self.tabs.active_buffer() {
+                    if let Some(ref path) = buf.file_path.clone() {
+                        let row = buf.cursor_row as u32;
+                        let col = buf.cursor_col as u32;
+                        self.lsp.request_references(path, row, col);
+                    }
+                }
+            }
+            Command::ReferencesUp => {
+                if self.reference_active && !self.reference_locations.is_empty() {
+                    if self.reference_index > 0 {
+                        self.reference_index -= 1;
+                    } else {
+                        self.reference_index = self.reference_locations.len() - 1;
+                    }
+                }
+            }
+            Command::ReferencesDown => {
+                if self.reference_active && !self.reference_locations.is_empty() {
+                    self.reference_index =
+                        (self.reference_index + 1) % self.reference_locations.len();
+                }
+            }
+            Command::ReferencesConfirm => {
+                if self.reference_active {
+                    if let Some(loc) = self.reference_locations.get(self.reference_index).cloned() {
+                        self.reference_active = false;
+                        self.reference_locations.clear();
+                        self.focus = FocusPane::Editor;
+                        self.open_file(&loc.file);
+                        if let Some(buf) = self.tabs.active_buffer_mut() {
+                            buf.cursor_row = loc.line;
+                            buf.cursor_col = loc.col;
+                        }
+                    }
+                }
+            }
+            Command::ReferencesClose => {
+                self.reference_active = false;
+                self.reference_locations.clear();
+                self.focus = FocusPane::Editor;
+            }
+
+            // LSP Format
+            Command::LspFormat => {
+                if let Some(buf) = self.tabs.active_buffer() {
+                    if let Some(ref path) = buf.file_path.clone() {
+                        self.lsp.request_format(path);
+                    }
+                }
+            }
+
+            // Explorer file operations
+            Command::ExplorerNewFile => {
+                self.explorer_input.clear();
+                self.explorer_input_mode = Some(ExplorerInputMode::NewFile);
+                self.focus = FocusPane::ExplorerInput;
+            }
+            Command::ExplorerNewFolder => {
+                self.explorer_input.clear();
+                self.explorer_input_mode = Some(ExplorerInputMode::NewFolder);
+                self.focus = FocusPane::ExplorerInput;
+            }
+            Command::ExplorerRename => {
+                if let Some(entry) = self.explorer.selected_entry() {
+                    self.explorer_input = entry.name.clone();
+                }
+                self.explorer_input_mode = Some(ExplorerInputMode::Rename);
+                self.focus = FocusPane::ExplorerInput;
+            }
+            Command::ExplorerDelete => {
+                self.explorer_input.clear();
+                self.explorer_input_mode = Some(ExplorerInputMode::ConfirmDelete);
+                self.focus = FocusPane::ExplorerInput;
+            }
+            Command::ExplorerInputChar(c) => {
+                self.explorer_input.push(c);
+            }
+            Command::ExplorerInputBackspace => {
+                self.explorer_input.pop();
+            }
+            Command::ExplorerConfirmInput => {
+                match self.explorer_input_mode {
+                    Some(ExplorerInputMode::NewFile) => {
+                        let name = self.explorer_input.clone();
+                        match self.explorer.create_file(&name) {
+                            Ok(path) => {
+                                self.status_message = format!("Created {}", name);
+                                self.open_file(&path);
+                            }
+                            Err(e) => self.status_message = format!("Error: {}", e),
+                        }
+                    }
+                    Some(ExplorerInputMode::NewFolder) => {
+                        let name = self.explorer_input.clone();
+                        match self.explorer.create_folder(&name) {
+                            Ok(_) => self.status_message = format!("Created folder {}", name),
+                            Err(e) => self.status_message = format!("Error: {}", e),
+                        }
+                    }
+                    Some(ExplorerInputMode::Rename) => {
+                        let name = self.explorer_input.clone();
+                        match self.explorer.rename_selected(&name) {
+                            Ok(_) => self.status_message = format!("Renamed to {}", name),
+                            Err(e) => self.status_message = format!("Error: {}", e),
+                        }
+                    }
+                    Some(ExplorerInputMode::ConfirmDelete) => {
+                        if self.explorer_input == "y" || self.explorer_input == "yes" {
+                            match self.explorer.delete_selected() {
+                                Ok(()) => self.status_message = "Deleted.".to_string(),
+                                Err(e) => self.status_message = format!("Error: {}", e),
+                            }
+                        }
+                    }
+                    None => {}
+                }
+                self.explorer_input.clear();
+                self.explorer_input_mode = None;
+                self.focus = FocusPane::Explorer;
+            }
+            Command::ExplorerCancelInput => {
+                self.explorer_input.clear();
+                self.explorer_input_mode = None;
+                self.focus = FocusPane::Explorer;
+            }
+        }
+    }
+
+    fn apply_workspace_edit(&mut self, edit: &ride_core::lsp::WorkspaceEdit) {
+        for (path, text_edits) in &edit.changes {
+            self.open_file(path);
+            if let Some(buf) = self.tabs.active_buffer_mut() {
+                buf.apply_text_edits(text_edits);
+            }
         }
     }
 
@@ -597,6 +804,42 @@ impl App {
                 self.completion_index = 0;
                 self.completion_active = true;
                 self.focus = FocusPane::Completion;
+            }
+        }
+
+        // Handle code action result
+        if let Some(actions) = self.lsp.pending_code_actions.take() {
+            if !actions.is_empty() {
+                self.code_action_items = actions;
+                self.code_action_index = 0;
+                self.code_action_active = true;
+                self.focus = FocusPane::CodeAction;
+            } else {
+                self.status_message = "No code actions available.".to_string();
+            }
+        }
+
+        // Handle references result
+        if let Some(locations) = self.lsp.pending_references.take() {
+            if !locations.is_empty() {
+                self.reference_locations = locations;
+                self.reference_index = 0;
+                self.reference_active = true;
+                self.focus = FocusPane::References;
+            } else {
+                self.status_message = "No references found.".to_string();
+            }
+        }
+
+        // Handle format result
+        if let Some(edits) = self.lsp.pending_format.take() {
+            if !edits.is_empty() {
+                if let Some(buf) = self.tabs.active_buffer_mut() {
+                    buf.apply_text_edits(&edits);
+                }
+                self.status_message = "Formatted.".to_string();
+            } else {
+                self.status_message = "No formatting changes.".to_string();
             }
         }
 

@@ -11,6 +11,9 @@
     { "key": "ctrl+g", "command": "GoToLineOpen" },
     { "key": "ctrl+h", "command": "LspHover" },
     { "key": "ctrl+d", "command": "LspGotoDefinition" },
+    { "key": "ctrl+.", "command": "LspCodeAction" },
+    { "key": "ctrl+shift+r", "command": "LspFindReferences" },
+    { "key": "ctrl+shift+i", "command": "LspFormat" },
     { "key": "ctrl+left", "command": "MoveWordLeft" },
     { "key": "ctrl+right", "command": "MoveWordRight" },
     { "key": "ctrl+pagedown", "command": "NextTab" },
@@ -40,7 +43,10 @@
     { "key": "down", "command": "ExplorerDown" },
     { "key": "enter", "command": "ExplorerEnter" },
     { "key": "tab", "command": "FocusEditor" },
-    { "key": "esc", "command": "FocusEditor" }
+    { "key": "esc", "command": "FocusEditor" },
+    { "key": "n", "command": "ExplorerNewFile" },
+    { "key": "r", "command": "ExplorerRename" },
+    { "key": "d", "command": "ExplorerDelete" }
   ],
   "search": [
     { "key": "esc", "command": "SearchClose" },
@@ -61,5 +67,22 @@
     { "key": "esc", "command": "GoToLineClose" },
     { "key": "enter", "command": "GoToLineConfirm" },
     { "key": "backspace", "command": "GoToLineBackspace" }
+  ],
+  "code_action": [
+    { "key": "esc", "command": "CodeActionClose" },
+    { "key": "enter", "command": "CodeActionConfirm" },
+    { "key": "up", "command": "CodeActionUp" },
+    { "key": "down", "command": "CodeActionDown" }
+  ],
+  "references": [
+    { "key": "esc", "command": "ReferencesClose" },
+    { "key": "enter", "command": "ReferencesConfirm" },
+    { "key": "up", "command": "ReferencesUp" },
+    { "key": "down", "command": "ReferencesDown" }
+  ],
+  "explorer_input": [
+    { "key": "esc", "command": "ExplorerCancelInput" },
+    { "key": "enter", "command": "ExplorerConfirmInput" },
+    { "key": "backspace", "command": "ExplorerInputBackspace" }
   ]
 }

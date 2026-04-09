@@ -1,9 +1,9 @@
-use crate::app::App;
+use crate::app::{App, ExplorerInputMode};
 use crate::theme_style::{parse_color, to_style};
 use ratatui::layout::Rect;
-use ratatui::style::Style;
+use ratatui::style::{Color, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, List, ListItem};
+use ratatui::widgets::{Block, Borders, Clear, List, ListItem, Paragraph};
 use ratatui::Frame;
 use ride_core::command::FocusPane;
 
@@ -62,4 +62,19 @@ pub fn render_explorer(frame: &mut Frame, area: Rect, app: &App) {
     let list = List::new(items);
     frame.render_widget(block, area);
     frame.render_widget(list, inner);
+
+    // Explorer input prompt
+    if let Some(mode) = &app.explorer_input_mode {
+        let prompt = match mode {
+            ExplorerInputMode::NewFile => "New file: ",
+            ExplorerInputMode::NewFolder => "New folder: ",
+            ExplorerInputMode::Rename => "Rename: ",
+            ExplorerInputMode::ConfirmDelete => "Delete? (y/n): ",
+        };
+        let input_area = Rect::new(area.x, area.y + area.height.saturating_sub(1), area.width, 1);
+        let text = format!("{}{}", prompt, app.explorer_input);
+        let para = Paragraph::new(text).style(Style::default().fg(Color::Yellow).bg(Color::Black));
+        frame.render_widget(Clear, input_area);
+        frame.render_widget(para, input_area);
+    }
 }

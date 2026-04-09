@@ -8,7 +8,6 @@
 
 ## File Handling
 
-- File creation, rename, and delete from the explorer
 - Non-UTF-8 encoding support
 
 ## Navigation and UX
@@ -26,9 +25,10 @@
 
 ## Language Support
 
-- LSP code actions
+- LSP rename symbol
+- LSP signature help
 
 ## Infrastructure
 
-- CI pipeline
 - Plugin system for extensibility beyond keybindings
+- GUI frontend (egui/iced)

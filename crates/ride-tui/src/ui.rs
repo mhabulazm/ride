@@ -1,9 +1,11 @@
 use crate::app::App;
+use crate::ui_code_action::render_code_actions;
 use crate::ui_completion::render_completion;
 use crate::ui_editor::render_editor;
 use crate::ui_explorer::render_explorer;
 use crate::ui_fuzzy::render_fuzzy;
 use crate::ui_goto::render_goto_line;
+use crate::ui_references::render_references;
 use crate::ui_search::render_search;
 use crate::ui_status::render_status;
 use crate::ui_tabs::render_tabs;
@@ -75,5 +77,15 @@ pub fn render(frame: &mut Frame, app: &mut App) {
     // Completion popup overlay
     if app.completion_active {
         render_completion(frame, content_area, app);
+    }
+
+    // Code action popup overlay
+    if app.code_action_active {
+        render_code_actions(frame, content_area, app);
+    }
+
+    // References panel overlay
+    if app.reference_active {
+        render_references(frame, content_area, app);
     }
 }

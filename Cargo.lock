@@ -558,6 +558,7 @@ dependencies = [
  "crossterm",
  "ratatui",
  "ride-core",
+ "serde_json",
 ]
 
 [[package]]
