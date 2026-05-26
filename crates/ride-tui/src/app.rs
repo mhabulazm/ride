@@ -274,6 +274,20 @@ impl App {
                     self.preview_active = false;
                     return;
                 }
+                // Preview is a read-only view: swallow editing and cursor movement.
+                Command::InsertChar(_)
+                | Command::InsertNewline
+                | Command::DeleteBack
+                | Command::DeleteForward
+                | Command::Undo
+                | Command::MoveLeft
+                | Command::MoveRight
+                | Command::MoveToLineStart
+                | Command::MoveToLineEnd
+                | Command::MoveToFileStart
+                | Command::MoveToFileEnd
+                | Command::MoveWordLeft
+                | Command::MoveWordRight => return,
                 _ => {}
             }
         }
@@ -451,8 +465,16 @@ impl App {
             }
 
             // Tabs
-            Command::NextTab => self.tabs.next_tab(),
-            Command::PrevTab => self.tabs.prev_tab(),
+            Command::NextTab => {
+                self.tabs.next_tab();
+                self.preview_active = false;
+                self.preview_scroll = 0;
+            }
+            Command::PrevTab => {
+                self.tabs.prev_tab();
+                self.preview_active = false;
+                self.preview_scroll = 0;
+            }
             Command::CloseTab => {
                 if let Some(buf) = self.tabs.active_buffer() {
                     if buf.dirty {
@@ -474,6 +496,8 @@ impl App {
                     self.git_baselines.remove(self.tabs.active);
                 }
                 self.tabs.close_tab();
+                self.preview_active = false;
+                self.preview_scroll = 0;
             }
 
             // Explorer
