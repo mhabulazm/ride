@@ -220,13 +220,14 @@ impl Theme {
             "light" => Some(light_theme()),
             "monokai" => Some(monokai_theme()),
             "solarized-dark" => Some(solarized_dark_theme()),
+            "colorblind" => Some(colorblind_dark_theme()),
             _ => None,
         }
     }
 
     /// List available built-in theme names.
     pub fn builtin_names() -> &'static [&'static str] {
-        &["dark", "light", "monokai", "solarized-dark"]
+        &["dark", "light", "monokai", "solarized-dark", "colorblind"]
     }
 }
 
@@ -600,6 +601,84 @@ pub fn solarized_dark_theme() -> Theme {
     }
 }
 
+pub fn colorblind_dark_theme() -> Theme {
+    Theme {
+        name: "colorblind".to_string(),
+        syntax: SyntaxColors {
+            keyword: ColorStyle::fg_bold("#E69F00"),
+            type_name: ColorStyle::fg("#56B4E9"),
+            string: ColorStyle::fg("#009E73"),
+            comment: ColorStyle::fg_italic("#999999"),
+            number: ColorStyle::fg("#CC79A7"),
+            function: ColorStyle::fg("#0072B2"),
+            operator: ColorStyle::fg("#D55E00"),
+            punctuation: ColorStyle::fg("#f0f0f0"),
+            variable: ColorStyle::fg("#e0e0e0"),
+            heading: ColorStyle::fg_bold("#56B4E9"),
+            link: ColorStyle::fg_underline("#56B4E9"),
+            emphasis: ColorStyle::italic_only(),
+            mermaid_keyword: ColorStyle::fg_bold("#E69F00"),
+            mermaid_arrow: ColorStyle::fg("#56B4E9"),
+            log_error: ColorStyle::fg_bold("#D55E00"),
+            log_warn: ColorStyle::fg("#E69F00"),
+            log_info: ColorStyle::fg("#009E73"),
+            log_debug: ColorStyle::fg("#999999"),
+            log_timestamp: ColorStyle::fg("#56B4E9"),
+            normal: ColorStyle::new(),
+        },
+        ui: UiColors {
+            border_focused: "#56B4E9".into(),
+            border_unfocused: "#666666".into(),
+            line_number: "#666666".into(),
+            line_number_active: ColorStyle::fg_bold("#F0E442"),
+            bracket_match: ColorStyle::fg_bg_bold("#F0E442", "#333333"),
+            fold_indicator: ColorStyle::fg_italic("#999999"),
+            tilde_empty: "#666666".into(),
+            wrap_gutter: "#666666".into(),
+            diagnostic_error: ColorStyle::fg_bold("#D55E00"),
+            diagnostic_warning: ColorStyle::fg_bold("#E69F00"),
+            diagnostic_info: ColorStyle::fg("#56B4E9"),
+            diagnostic_hint: ColorStyle::fg("#999999"),
+            welcome_title: ColorStyle::fg_bold("#56B4E9"),
+            welcome_key: ColorStyle::fg_bold("#F0E442"),
+            welcome_desc: ColorStyle::fg("#f0f0f0"),
+            welcome_section: ColorStyle::fg_bold("#E69F00"),
+            status_bar_bg: "#333333".into(),
+            status_label: ColorStyle::fg_bg_bold("#000000", "#56B4E9"),
+            status_file: ColorStyle::fg_bg("#f0f0f0", "#333333"),
+            status_position: ColorStyle::fg_bg("#cccccc", "#333333"),
+            status_message: ColorStyle::fg("#E69F00"),
+            status_hover: ColorStyle::fg("#56B4E9"),
+            tab_active: ColorStyle::fg_bg_bold("#f0f0f0", "#333333"),
+            tab_inactive: ColorStyle::fg("#999999"),
+            tab_bar_bg: "#1a1a1a".into(),
+            explorer_title: ColorStyle::fg_bold("#f0f0f0"),
+            explorer_dir: ColorStyle::fg_bold("#56B4E9"),
+            explorer_file: ColorStyle::fg("#f0f0f0"),
+            explorer_selected: ColorStyle::fg_bg_bold("#000000", "#56B4E9"),
+            search_label: ColorStyle::fg_bg_bold("#000000", "#F0E442"),
+            search_query: ColorStyle::fg("#f0f0f0"),
+            search_match_count: ColorStyle::fg("#999999"),
+            fuzzy_border: "#56B4E9".into(),
+            fuzzy_title: ColorStyle::fg_bold("#f0f0f0"),
+            fuzzy_prompt: ColorStyle::fg("#F0E442"),
+            fuzzy_match_count: ColorStyle::fg("#999999"),
+            fuzzy_selected: ColorStyle::fg_bg_bold("#000000", "#56B4E9"),
+            fuzzy_item: ColorStyle::fg("#f0f0f0"),
+            goto_border: "#56B4E9".into(),
+            goto_title: ColorStyle::fg_bold("#f0f0f0"),
+            goto_prompt: ColorStyle::fg("#F0E442"),
+            completion_border: "#666666".into(),
+            completion_bg: "#1a1a1a".into(),
+            completion_selected: ColorStyle::fg_bg_bold("#000000", "#56B4E9"),
+            completion_item: ColorStyle::fg("#f0f0f0"),
+            git_added: ColorStyle::fg_bg("#0072B2", "#0a1f2e"),
+            git_modified: ColorStyle::fg_bg("#E69F00", "#2a2410"),
+            git_removed: ColorStyle::fg("#D55E00"),
+        },
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Theme override (merge partial user config on top of a base)
 // ---------------------------------------------------------------------------
@@ -876,8 +955,15 @@ mod tests {
     #[test]
     fn test_builtin_names() {
         let names = Theme::builtin_names();
-        assert_eq!(names.len(), 4);
+        assert_eq!(names.len(), 5);
         assert!(names.contains(&"dark"));
+    }
+
+    #[test]
+    fn test_colorblind_theme_registered() {
+        assert!(Theme::builtin("colorblind").is_some());
+        let names = Theme::builtin_names();
+        assert!(names.contains(&"colorblind"));
     }
 
     #[test]
