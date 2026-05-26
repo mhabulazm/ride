@@ -25,6 +25,7 @@ pub struct App {
     pub highlighter_types: Vec<HighlighterType>,
     pub ts_highlighters: Vec<Option<TreeSitterHighlighter>>,
     pub fold_states: Vec<FoldState>,
+    pub git_baselines: Vec<Option<String>>,
     pub keymap: KeymapConfig,
     pub fuzzy: FuzzyFinder,
     pub goto_line_input: String,
@@ -44,7 +45,6 @@ pub struct App {
     pub explorer_input: String,
     pub explorer_input_mode: Option<ExplorerInputMode>,
     pub theme: Theme,
-    pub git_baselines: Vec<Option<String>>,
     pub git_is_repo: bool,
     doc_versions: std::collections::HashMap<PathBuf, i32>,
 }
@@ -178,15 +178,20 @@ impl App {
 
     /// Refresh the committed (HEAD) baseline for the active tab.
     pub fn refresh_git_baseline(&mut self) {
+        self.refresh_git_baseline_for(self.tabs.active);
+    }
+
+    /// Refresh the committed (HEAD) baseline for the tab at `index`.
+    pub fn refresh_git_baseline_for(&mut self, index: usize) {
         while self.git_baselines.len() < self.tabs.tabs.len() {
             self.git_baselines.push(None);
         }
-        let path = match self.tabs.active_buffer().and_then(|b| b.file_path.clone()) {
+        let path = match self.tabs.tabs.get(index).and_then(|b| b.file_path.clone()) {
             Some(p) => p,
             None => return,
         };
         let baseline = ride_core::git::head_blob(&self.working_dir, &path);
-        if let Some(slot) = self.git_baselines.get_mut(self.tabs.active) {
+        if let Some(slot) = self.git_baselines.get_mut(index) {
             *slot = baseline;
         }
     }
@@ -420,6 +425,9 @@ impl App {
                 }
                 if self.tabs.active < self.fold_states.len() {
                     self.fold_states.remove(self.tabs.active);
+                }
+                if self.tabs.active < self.git_baselines.len() {
+                    self.git_baselines.remove(self.tabs.active);
                 }
                 self.tabs.close_tab();
             }
@@ -912,14 +920,19 @@ impl App {
         }
         let elapsed = self.last_autosave.elapsed().as_secs();
         if elapsed >= self.settings.autosave_interval_secs {
-            let mut saved = Vec::new();
-            for tab in &mut self.tabs.tabs {
+            let mut saved_names = Vec::new();
+            let mut saved_indices = Vec::new();
+            for (idx, tab) in self.tabs.tabs.iter_mut().enumerate() {
                 if tab.dirty && tab.file_path.is_some() && tab.save().is_ok() {
-                    saved.push(tab.file_name());
+                    saved_names.push(tab.file_name());
+                    saved_indices.push(idx);
                 }
             }
-            if !saved.is_empty() {
-                self.status_message = format!("Autosaved: {}", saved.join(", "));
+            if !saved_names.is_empty() {
+                self.status_message = format!("Autosaved: {}", saved_names.join(", "));
+            }
+            for idx in saved_indices {
+                self.refresh_git_baseline_for(idx);
             }
             self.last_autosave = Instant::now();
         }
