@@ -9,8 +9,10 @@ A minimalist, fast, terminal-based IDE built in Rust.
 
 ## Highlights
 
-- **Tree-sitter** syntax highlighting for Rust, Python, TypeScript, JavaScript, Go, C/C++, Java, Markdown
+- **Tree-sitter** syntax highlighting for Rust, Python, TypeScript, JavaScript, Go, C/C++, Java, Markdown, HTML
 - **LSP** integration — diagnostics, hover, go-to-definition, autocomplete, code actions, find references, format document
+- **Git** change markers in the gutter (added/modified/removed) with a live diff against HEAD
+- **Markdown preview** (toggle with Ctrl+E)
 - **Fuzzy file finder**, cross-file search, code folding, bracket matching, file operations in explorer
 - **Configurable** themes, keybindings, and autosave
 - **Fast** — large file streaming via ropey, incremental parsing
@@ -49,6 +51,7 @@ ride ./src/main.rs
 | Ctrl+S | Save |
 | Ctrl+Q | Quit |
 | Ctrl+Z | Undo |
+| Ctrl+E | Toggle Markdown preview |
 | Ctrl+B | Toggle file explorer |
 | Ctrl+P | Fuzzy file finder |
 | Ctrl+G | Go to line |
@@ -92,6 +95,7 @@ See [keybindings.json](keybindings.json) for the full default map and customizat
 | `.cpp`, `.cc`, `.hpp` | C++ | tree-sitter |
 | `.java` | Java | tree-sitter |
 | `.md` | Markdown | tree-sitter |
+| `.html`, `.htm` | HTML | tree-sitter |
 | `.kt` | Kotlin | regex |
 | `.proto` | Protocol Buffers | regex |
 | `.log` | Log files | regex |
@@ -121,7 +125,7 @@ Set `autosave_interval_secs` to `0` to disable autosave. LSP servers start on de
 
 ### Themes
 
-Built-in: `dark` (default), `light`, `monokai`, `solarized-dark`.
+Built-in: `dark` (default), `light`, `monokai`, `solarized-dark`, `colorblind` (red-green-safe, Okabe-Ito palette).
 
 Custom overrides on top of a base theme:
 
@@ -134,7 +138,10 @@ Custom overrides on top of a base theme:
       "string": { "fg": "#f1fa8c" }
     },
     "ui": {
-      "border_focused": "#bd93f9"
+      "border_focused": "#bd93f9",
+      "git_added": { "fg": "#0072B2", "bg": "#0a1f2e" },
+      "git_modified": { "fg": "#E69F00" },
+      "git_removed": { "fg": "#D55E00" }
     }
   }
 }

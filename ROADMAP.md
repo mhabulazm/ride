@@ -1,5 +1,12 @@
 # RIDE Enhancement Ideas
 
+## Recently Added
+
+- HTML syntax highlighting (`.html`, `.htm`) via tree-sitter
+- Markdown preview toggle (Ctrl+E)
+- Git change markers in the gutter with live diff against HEAD (`+a ~m -d` counts in status bar)
+- `colorblind` built-in theme (red-green-safe, Okabe-Ito palette)
+
 ## Editing Fundamentals
 
 - Text selection and clipboard (copy/cut/paste)
