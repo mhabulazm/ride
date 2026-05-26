@@ -3,6 +3,7 @@ pub mod command;
 pub mod explorer;
 pub mod folding;
 pub mod fuzzy;
+pub mod git;
 pub mod highlight;
 pub mod keymap;
 pub mod lsp;
