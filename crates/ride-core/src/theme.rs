@@ -197,6 +197,11 @@ pub struct UiColors {
     pub completion_bg: String,
     pub completion_selected: ColorStyle,
     pub completion_item: ColorStyle,
+
+    // Git change markers (fg = gutter marker color, bg = optional line tint)
+    pub git_added: ColorStyle,
+    pub git_modified: ColorStyle,
+    pub git_removed: ColorStyle,
 }
 
 /// The full theme.
@@ -321,6 +326,10 @@ fn dark_ui() -> UiColors {
         completion_bg: "black".into(),
         completion_selected: ColorStyle::fg_bg_bold("black", "cyan"),
         completion_item: ColorStyle::fg("white"),
+
+        git_added: ColorStyle::fg_bg("green", "#0e2a1a"),
+        git_modified: ColorStyle::fg_bg("yellow", "#2a2410"),
+        git_removed: ColorStyle::fg("red"),
     }
 }
 
@@ -405,6 +414,10 @@ pub fn light_theme() -> Theme {
             completion_bg: "#ffffff".into(),
             completion_selected: ColorStyle::fg_bg_bold("#ffffff", "#0550ae"),
             completion_item: ColorStyle::fg("#24292f"),
+
+            git_added: ColorStyle::fg_bg("#116329", "#e6ffec"),
+            git_modified: ColorStyle::fg_bg("#9a6700", "#fff8c5"),
+            git_removed: ColorStyle::fg("#cf222e"),
         },
     }
 }
@@ -490,6 +503,10 @@ pub fn monokai_theme() -> Theme {
             completion_bg: "#272822".into(),
             completion_selected: ColorStyle::fg_bg_bold("#272822", "#a6e22e"),
             completion_item: ColorStyle::fg("#f8f8f2"),
+
+            git_added: ColorStyle::fg_bg("#a6e22e", "#1e2a16"),
+            git_modified: ColorStyle::fg_bg("#e6db74", "#2e2a16"),
+            git_removed: ColorStyle::fg("#f92672"),
         },
     }
 }
@@ -575,6 +592,10 @@ pub fn solarized_dark_theme() -> Theme {
             completion_bg: "#002b36".into(),
             completion_selected: ColorStyle::fg_bg_bold("#fdf6e3", "#268bd2"),
             completion_item: ColorStyle::fg("#839496"),
+
+            git_added: ColorStyle::fg_bg("#859900", "#0a2b22"),
+            git_modified: ColorStyle::fg_bg("#b58900", "#0e2b1a"),
+            git_removed: ColorStyle::fg("#dc322f"),
         },
     }
 }
@@ -677,6 +698,9 @@ pub struct UiOverride {
     pub completion_bg: Option<String>,
     pub completion_selected: Option<ColorStyle>,
     pub completion_item: Option<ColorStyle>,
+    pub git_added: Option<ColorStyle>,
+    pub git_modified: Option<ColorStyle>,
+    pub git_removed: Option<ColorStyle>,
 }
 
 impl Theme {
@@ -776,6 +800,9 @@ impl Theme {
                     apply_ui_str!(completion_bg);
                     apply_ui_cs!(completion_selected);
                     apply_ui_cs!(completion_item);
+                    apply_ui_cs!(git_added);
+                    apply_ui_cs!(git_modified);
+                    apply_ui_cs!(git_removed);
                 }
                 theme
             }
@@ -851,6 +878,16 @@ mod tests {
         let names = Theme::builtin_names();
         assert_eq!(names.len(), 4);
         assert!(names.contains(&"dark"));
+    }
+
+    #[test]
+    fn test_resolve_git_override() {
+        let json = r##"{ "base": "dark", "ui": { "git_added": { "fg": "#0072B2" } } }"##;
+        let config: ThemeConfig = serde_json::from_str(json).unwrap();
+        let theme = Theme::resolve(&config);
+        assert_eq!(theme.ui.git_added.fg.as_deref(), Some("#0072B2"));
+        // Non-overridden git field keeps its base value
+        assert_eq!(theme.ui.git_removed.fg.as_deref(), Some("red"));
     }
 
     #[test]
