@@ -594,7 +594,7 @@ pub fn solarized_dark_theme() -> Theme {
             completion_item: ColorStyle::fg("#839496"),
 
             git_added: ColorStyle::fg_bg("#859900", "#0a2b22"),
-            git_modified: ColorStyle::fg_bg("#b58900", "#0e2b1a"),
+            git_modified: ColorStyle::fg_bg("#b58900", "#2b2810"),
             git_removed: ColorStyle::fg("#dc322f"),
         },
     }
