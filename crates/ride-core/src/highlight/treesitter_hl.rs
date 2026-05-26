@@ -488,9 +488,9 @@ impl TreeSitterHighlighter {
             "comment" => HighlightKind::Comment,
             "tag_name" | "erroneous_end_tag_name" => HighlightKind::Type,
             "attribute_name" => HighlightKind::Variable,
-            "attribute_value" | "quoted_attribute_value" | "\"" | "'" => HighlightKind::String,
+            "attribute_value" | "\"" | "'" => HighlightKind::String,
             "doctype" => HighlightKind::Keyword,
-            "<" | ">" | "</" | "/>" | "=" => HighlightKind::Punctuation,
+            "<" | ">" | "</" | "/>" | "<!" | "=" => HighlightKind::Punctuation,
             _ => HighlightKind::Normal,
         }
     }

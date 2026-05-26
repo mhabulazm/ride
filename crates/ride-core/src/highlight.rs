@@ -92,6 +92,27 @@ pub fn detect_highlighter(path: &Path) -> HighlighterType {
     }
 }
 
+/// Get highlight spans for a single line of text.
+/// This is the main entry point used by the UI.
+pub fn highlight_line(
+    highlighter_type: HighlighterType,
+    line: &str,
+    _line_idx: usize,
+) -> Vec<HighlightSpan> {
+    match highlighter_type {
+        HighlighterType::TreeSitter(_lang) => {
+            // Tree-sitter operates on full source, so per-line highlighting
+            // will be handled by the treesitter module with cached parse trees.
+            // For now, fall back to basic keyword highlighting.
+            regex_hl::highlight_as_code(line)
+        }
+        HighlighterType::Regex(RegexLang::Code) => regex_hl::highlight_as_code(line),
+        HighlighterType::Regex(RegexLang::Log) => regex_hl::highlight_log(line),
+        HighlighterType::Regex(RegexLang::Mermaid) => regex_hl::highlight_mermaid(line),
+        HighlighterType::Plain => vec![],
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -119,26 +140,5 @@ mod tests {
         // At least one Type span (the tag name) and one String span (the attr value).
         assert!(spans.iter().any(|s| s.kind == HighlightKind::Type));
         assert!(spans.iter().any(|s| s.kind == HighlightKind::String));
-    }
-}
-
-/// Get highlight spans for a single line of text.
-/// This is the main entry point used by the UI.
-pub fn highlight_line(
-    highlighter_type: HighlighterType,
-    line: &str,
-    _line_idx: usize,
-) -> Vec<HighlightSpan> {
-    match highlighter_type {
-        HighlighterType::TreeSitter(_lang) => {
-            // Tree-sitter operates on full source, so per-line highlighting
-            // will be handled by the treesitter module with cached parse trees.
-            // For now, fall back to basic keyword highlighting.
-            regex_hl::highlight_as_code(line)
-        }
-        HighlighterType::Regex(RegexLang::Code) => regex_hl::highlight_as_code(line),
-        HighlighterType::Regex(RegexLang::Log) => regex_hl::highlight_log(line),
-        HighlighterType::Regex(RegexLang::Mermaid) => regex_hl::highlight_mermaid(line),
-        HighlighterType::Plain => vec![],
     }
 }
