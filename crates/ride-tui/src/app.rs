@@ -46,6 +46,8 @@ pub struct App {
     pub explorer_input_mode: Option<ExplorerInputMode>,
     pub theme: Theme,
     pub git_is_repo: bool,
+    pub preview_active: bool,
+    pub preview_scroll: usize,
     doc_versions: std::collections::HashMap<PathBuf, i32>,
 }
 
@@ -106,6 +108,8 @@ impl App {
             theme,
             git_baselines: Vec::new(),
             git_is_repo,
+            preview_active: false,
+            preview_scroll: 0,
             doc_versions: std::collections::HashMap::new(),
         };
 
@@ -246,6 +250,33 @@ impl App {
     }
 
     pub fn handle_command(&mut self, cmd: Command) {
+        if self.preview_active {
+            match &cmd {
+                Command::MoveDown => {
+                    self.preview_scroll = self.preview_scroll.saturating_add(1);
+                    return;
+                }
+                Command::MoveUp => {
+                    self.preview_scroll = self.preview_scroll.saturating_sub(1);
+                    return;
+                }
+                Command::PageDown => {
+                    self.preview_scroll =
+                        self.preview_scroll.saturating_add(self.viewport_height.max(1));
+                    return;
+                }
+                Command::PageUp => {
+                    self.preview_scroll =
+                        self.preview_scroll.saturating_sub(self.viewport_height.max(1));
+                    return;
+                }
+                Command::TogglePreview => {
+                    self.preview_active = false;
+                    return;
+                }
+                _ => {}
+            }
+        }
         match cmd {
             Command::None => {}
 
@@ -371,6 +402,19 @@ impl App {
             Command::UnfoldAll => {
                 if let Some(fold_state) = self.fold_states.get_mut(self.tabs.active) {
                     fold_state.unfold_all();
+                }
+            }
+
+            // Preview
+            Command::TogglePreview => {
+                let is_md = self.active_highlighter()
+                    == HighlighterType::TreeSitter(ride_core::highlight::TreeSitterLang::Markdown);
+                if is_md {
+                    self.preview_active = !self.preview_active;
+                    self.preview_scroll = 0;
+                } else {
+                    self.status_message =
+                        "Preview is only available for Markdown files".to_string();
                 }
             }
 

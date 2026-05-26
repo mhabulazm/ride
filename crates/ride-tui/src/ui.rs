@@ -5,13 +5,15 @@ use crate::ui_editor::render_editor;
 use crate::ui_explorer::render_explorer;
 use crate::ui_fuzzy::render_fuzzy;
 use crate::ui_goto::render_goto_line;
+use crate::ui_preview::render_preview;
 use crate::ui_references::render_references;
 use crate::ui_search::render_search;
 use crate::ui_status::render_status;
 use crate::ui_tabs::render_tabs;
-use ratatui::layout::{Constraint, Direction, Layout};
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::Frame;
 use ride_core::command::FocusPane;
+use ride_core::highlight::{HighlighterType, TreeSitterLang};
 
 pub fn render(frame: &mut Frame, app: &mut App) {
     let size = frame.area();
@@ -48,9 +50,9 @@ pub fn render(frame: &mut Frame, app: &mut App) {
             .split(content_area);
 
         render_explorer(frame, horizontal_chunks[0], app);
-        render_editor(frame, horizontal_chunks[1], app);
+        render_content(frame, horizontal_chunks[1], app);
     } else {
-        render_editor(frame, content_area, app);
+        render_content(frame, content_area, app);
     }
 
     // Search bar (if active)
@@ -87,5 +89,15 @@ pub fn render(frame: &mut Frame, app: &mut App) {
     // References panel overlay
     if app.reference_active {
         render_references(frame, content_area, app);
+    }
+}
+
+fn render_content(frame: &mut Frame, area: Rect, app: &mut App) {
+    let is_md = app.active_highlighter()
+        == HighlighterType::TreeSitter(TreeSitterLang::Markdown);
+    if app.preview_active && is_md {
+        render_preview(frame, area, app);
+    } else {
+        render_editor(frame, area, app);
     }
 }

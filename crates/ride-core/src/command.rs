@@ -30,6 +30,9 @@ pub enum Command {
     FoldAll,
     UnfoldAll,
 
+    // Preview
+    TogglePreview,
+
     // File operations
     Save,
     Quit,
@@ -168,6 +171,7 @@ pub enum SimpleCommand {
     ToggleFold,
     FoldAll,
     UnfoldAll,
+    TogglePreview,
     LspHover,
     LspGotoDefinition,
     LspComplete,
@@ -245,6 +249,7 @@ impl SimpleCommand {
             Self::ToggleFold => Command::ToggleFold,
             Self::FoldAll => Command::FoldAll,
             Self::UnfoldAll => Command::UnfoldAll,
+            Self::TogglePreview => Command::TogglePreview,
             Self::LspHover => Command::LspHover,
             Self::LspGotoDefinition => Command::LspGotoDefinition,
             Self::LspComplete => Command::LspComplete,

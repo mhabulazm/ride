@@ -7,6 +7,7 @@ mod ui_editor;
 mod ui_explorer;
 mod ui_fuzzy;
 mod ui_goto;
+mod ui_preview;
 mod ui_references;
 mod ui_search;
 mod ui_status;

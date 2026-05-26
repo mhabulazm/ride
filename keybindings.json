@@ -7,6 +7,7 @@
     { "key": "ctrl+p", "command": "FuzzyOpen" },
     { "key": "ctrl+f", "command": "SearchInFile" },
     { "key": "ctrl+z", "command": "Undo" },
+    { "key": "ctrl+e", "command": "TogglePreview" },
     { "key": "ctrl+shift+f", "command": "SearchAcrossFiles" },
     { "key": "ctrl+g", "command": "GoToLineOpen" },
     { "key": "ctrl+h", "command": "LspHover" },
