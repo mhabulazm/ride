@@ -220,4 +220,29 @@ mod tests {
         assert!(d.status.is_empty());
         assert!(d.deleted_before.is_empty());
     }
+
+    #[test]
+    fn test_head_blob_returns_committed_content() {
+        use std::fs;
+        use std::process::Command;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path();
+        let run = |args: &[&str]| {
+            Command::new("git").arg("-C").arg(path).args(args).output().unwrap();
+        };
+        run(&["init"]);
+        run(&["config", "user.email", "t@t"]);
+        run(&["config", "user.name", "t"]);
+        fs::write(path.join("f.txt"), "committed\n").unwrap();
+        run(&["add", "f.txt"]);
+        run(&["commit", "-m", "init"]);
+
+        assert!(is_repo(path));
+        let blob = head_blob(path, std::path::Path::new("f.txt"));
+        assert_eq!(blob.as_deref(), Some("committed\n"));
+
+        // Untracked file -> None, but still a repo
+        fs::write(path.join("new.txt"), "x\n").unwrap();
+        assert!(head_blob(path, std::path::Path::new("new.txt")).is_none());
+    }
 }
