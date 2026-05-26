@@ -57,6 +57,9 @@ pub fn render_markdown(source: &str) -> Vec<PreviewLine> {
     let mut bold = 0usize;
     let mut italic = 0usize;
     let mut in_link = false;
+    let mut link_url = String::new();
+    let mut in_image = false;
+    let mut image_alt = String::new();
     let mut heading: Option<u8> = None;
     let mut in_code_block = false;
     let mut blockquote_depth = 0usize;
@@ -98,7 +101,14 @@ pub fn render_markdown(source: &str) -> Vec<PreviewLine> {
                     style: PreviewStyle::ListItem,
                 });
             }
-            Event::Start(Tag::Link { .. }) => in_link = true,
+            Event::Start(Tag::Link { ref dest_url, .. }) => {
+                in_link = true;
+                link_url = dest_url.to_string();
+            }
+            Event::Start(Tag::Image { .. }) => {
+                in_image = true;
+                image_alt.clear();
+            }
             Event::Start(Tag::Paragraph) => {
                 if blockquote_depth > 0 {
                     cur.push(PreviewSpan {
@@ -127,10 +137,29 @@ pub fn render_markdown(source: &str) -> Vec<PreviewLine> {
                 list_stack.pop();
             }
             Event::End(TagEnd::Item) => flush(&mut cur, &mut lines),
-            Event::End(TagEnd::Link) => in_link = false,
+            Event::End(TagEnd::Link) => {
+                in_link = false;
+                if !link_url.is_empty() {
+                    cur.push(PreviewSpan {
+                        text: format!(" ({})", link_url),
+                        style: PreviewStyle::Normal,
+                    });
+                    link_url.clear();
+                }
+            }
+            Event::End(TagEnd::Image) => {
+                cur.push(PreviewSpan {
+                    text: format!("[image: {}]", image_alt),
+                    style: PreviewStyle::Link,
+                });
+                in_image = false;
+                image_alt.clear();
+            }
 
             Event::Text(t) => {
-                if in_code_block {
+                if in_image {
+                    image_alt.push_str(&t);
+                } else if in_code_block {
                     let parts: Vec<&str> = t.split('\n').collect();
                     for (k, part) in parts.iter().enumerate() {
                         if k > 0 {
@@ -250,5 +279,20 @@ mod tests {
             .filter(|l| l.spans.iter().any(|s| s.style == PreviewStyle::BlockQuote))
             .count();
         assert!(marked >= 2, "expected both blockquote paragraphs marked, got {marked}");
+    }
+
+    #[test]
+    fn test_link_shows_url() {
+        let lines = render_markdown("[click](http://example.com)");
+        let t = text_of(&lines);
+        assert!(t.contains("click"), "got: {t}");
+        assert!(t.contains("http://example.com"), "got: {t}");
+    }
+
+    #[test]
+    fn test_image_alt_rendered() {
+        let lines = render_markdown("![a cat](cat.png)");
+        let t = text_of(&lines);
+        assert!(t.contains("[image: a cat]"), "got: {t}");
     }
 }
