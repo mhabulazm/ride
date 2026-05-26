@@ -7,6 +7,7 @@ pub mod git;
 pub mod highlight;
 pub mod keymap;
 pub mod lsp;
+pub mod preview;
 pub mod search;
 pub mod settings;
 pub mod tab;
