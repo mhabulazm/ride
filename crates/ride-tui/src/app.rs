@@ -44,6 +44,8 @@ pub struct App {
     pub explorer_input: String,
     pub explorer_input_mode: Option<ExplorerInputMode>,
     pub theme: Theme,
+    pub git_baselines: Vec<Option<String>>,
+    pub git_is_repo: bool,
     doc_versions: std::collections::HashMap<PathBuf, i32>,
 }
 
@@ -70,6 +72,7 @@ impl App {
         let fuzzy = FuzzyFinder::new(&working_dir);
         let theme = settings.resolve_theme();
         let lsp = LspManager::new(settings.lsp.clone(), &working_dir);
+        let git_is_repo = ride_core::git::is_repo(&working_dir);
         let mut app = Self {
             tabs: TabManager::new(),
             explorer,
@@ -101,6 +104,8 @@ impl App {
             explorer_input: String::new(),
             explorer_input_mode: None,
             theme,
+            git_baselines: Vec::new(),
+            git_is_repo,
             doc_versions: std::collections::HashMap::new(),
         };
 
@@ -146,6 +151,7 @@ impl App {
                 } else {
                     self.ts_highlighters[self.tabs.active] = None;
                 }
+                self.refresh_git_baseline();
                 self.focus = FocusPane::Editor;
                 self.status_message = format!("Opened {}", path.display());
                 // Notify LSP
@@ -168,6 +174,42 @@ impl App {
             .get(self.tabs.active)
             .copied()
             .unwrap_or(HighlighterType::Plain)
+    }
+
+    /// Refresh the committed (HEAD) baseline for the active tab.
+    pub fn refresh_git_baseline(&mut self) {
+        while self.git_baselines.len() < self.tabs.tabs.len() {
+            self.git_baselines.push(None);
+        }
+        let path = match self.tabs.active_buffer().and_then(|b| b.file_path.clone()) {
+            Some(p) => p,
+            None => return,
+        };
+        let baseline = ride_core::git::head_blob(&self.working_dir, &path);
+        if let Some(slot) = self.git_baselines.get_mut(self.tabs.active) {
+            *slot = baseline;
+        }
+    }
+
+    /// Compute the git line diff for the active buffer, if in a repo.
+    pub fn active_git_diff(&self) -> Option<ride_core::git::GitLineDiff> {
+        let buf = self.tabs.active_buffer()?;
+        let current = buf.rope.to_string();
+        match self.git_baselines.get(self.tabs.active).and_then(|b| b.as_ref()) {
+            Some(base) => Some(ride_core::git::diff_lines(base, &current)),
+            None => {
+                if self.git_is_repo {
+                    // Untracked file inside a repo: treat every line as added.
+                    let line_count = current.lines().count();
+                    Some(ride_core::git::GitLineDiff {
+                        status: vec![ride_core::git::LineStatus::Added; line_count],
+                        deleted_before: std::collections::HashSet::new(),
+                    })
+                } else {
+                    None
+                }
+            }
+        }
     }
 
     /// Reparse tree-sitter for the active tab if it has one.
@@ -329,17 +371,22 @@ impl App {
 
             // File
             Command::Save => {
+                let mut saved_ok = false;
                 if let Some(buf) = self.tabs.active_buffer_mut() {
                     let path = buf.file_path.clone();
                     match buf.save() {
                         Ok(()) => {
                             self.status_message = "Saved.".to_string();
+                            saved_ok = true;
                             if let Some(ref p) = path {
                                 self.lsp.did_save(p);
                             }
                         }
                         Err(e) => self.status_message = format!("Save error: {}", e),
                     }
+                }
+                if saved_ok {
+                    self.refresh_git_baseline();
                 }
             }
             Command::Quit => {
