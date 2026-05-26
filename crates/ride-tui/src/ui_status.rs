@@ -24,6 +24,27 @@ pub fn render_status(frame: &mut Frame, area: Rect, app: &App) {
         ));
     }
 
+    // Git change counts (+added ~modified -removed)
+    if let Some(diff) = app.active_git_diff() {
+        let added = diff
+            .status
+            .iter()
+            .filter(|s| **s == ride_core::git::LineStatus::Added)
+            .count();
+        let modified = diff
+            .status
+            .iter()
+            .filter(|s| **s == ride_core::git::LineStatus::Modified)
+            .count();
+        let removed = diff.deleted_before.len();
+        if added + modified + removed > 0 {
+            spans.push(Span::styled(
+                format!(" +{} ~{} -{} ", added, modified, removed),
+                to_style(&theme.ui.git_added),
+            ));
+        }
+    }
+
     // Show diagnostic at cursor line
     if let Some(buf) = app.tabs.active_buffer() {
         if let Some(ref path) = buf.file_path {
