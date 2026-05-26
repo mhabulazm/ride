@@ -59,6 +59,7 @@ pub fn render_markdown(source: &str) -> Vec<PreviewLine> {
     let mut in_link = false;
     let mut heading: Option<u8> = None;
     let mut in_code_block = false;
+    let mut blockquote_depth = 0usize;
     let mut list_stack: Vec<Option<u64>> = Vec::new();
 
     let flush = |cur: &mut Vec<PreviewSpan>, lines: &mut Vec<PreviewLine>| {
@@ -79,16 +80,18 @@ pub fn render_markdown(source: &str) -> Vec<PreviewLine> {
             }
             Event::Start(Tag::Emphasis) => italic += 1,
             Event::Start(Tag::Strong) => bold += 1,
-            Event::Start(Tag::BlockQuote(_)) => {
-                cur.push(PreviewSpan { text: "▌ ".to_string(), style: PreviewStyle::BlockQuote });
-            }
+            Event::Start(Tag::BlockQuote(_)) => blockquote_depth += 1,
             Event::Start(Tag::CodeBlock(_)) => in_code_block = true,
             Event::Start(Tag::List(start)) => list_stack.push(start),
             Event::Start(Tag::Item) => {
                 let indent = "  ".repeat(list_stack.len().saturating_sub(1));
-                let marker = match list_stack.last().copied().flatten() {
-                    Some(n) => format!("{}. ", n),
-                    None => "• ".to_string(),
+                let marker = match list_stack.last_mut() {
+                    Some(Some(n)) => {
+                        let m = *n;
+                        *n += 1;
+                        format!("{}. ", m)
+                    }
+                    _ => "• ".to_string(),
                 };
                 cur.push(PreviewSpan {
                     text: format!("{}{}", indent, marker),
@@ -96,6 +99,14 @@ pub fn render_markdown(source: &str) -> Vec<PreviewLine> {
                 });
             }
             Event::Start(Tag::Link { .. }) => in_link = true,
+            Event::Start(Tag::Paragraph) => {
+                if blockquote_depth > 0 {
+                    cur.push(PreviewSpan {
+                        text: "▌ ".repeat(blockquote_depth),
+                        style: PreviewStyle::BlockQuote,
+                    });
+                }
+            }
 
             Event::End(TagEnd::Heading(_)) => {
                 heading = None;
@@ -104,7 +115,10 @@ pub fn render_markdown(source: &str) -> Vec<PreviewLine> {
             Event::End(TagEnd::Paragraph) => flush(&mut cur, &mut lines),
             Event::End(TagEnd::Emphasis) => italic = italic.saturating_sub(1),
             Event::End(TagEnd::Strong) => bold = bold.saturating_sub(1),
-            Event::End(TagEnd::BlockQuote(_)) => flush(&mut cur, &mut lines),
+            Event::End(TagEnd::BlockQuote(_)) => {
+                flush(&mut cur, &mut lines);
+                blockquote_depth = blockquote_depth.saturating_sub(1);
+            }
             Event::End(TagEnd::CodeBlock) => {
                 in_code_block = false;
                 flush(&mut cur, &mut lines);
@@ -138,7 +152,8 @@ pub fn render_markdown(source: &str) -> Vec<PreviewLine> {
                 cur.push(PreviewSpan { text: t.to_string(), style: PreviewStyle::Code });
             }
             Event::SoftBreak | Event::HardBreak => {
-                cur.push(PreviewSpan { text: " ".to_string(), style: PreviewStyle::Normal });
+                let style = inline_style(heading, bold, italic, in_link);
+                cur.push(PreviewSpan { text: " ".to_string(), style });
             }
             Event::Rule => {
                 flush(&mut cur, &mut lines);
@@ -216,5 +231,24 @@ mod tests {
     fn test_thematic_break() {
         let lines = render_markdown("a\n\n---\n\nb");
         assert!(lines.iter().flat_map(|l| &l.spans).any(|s| s.style == PreviewStyle::Rule));
+    }
+
+    #[test]
+    fn test_ordered_list_increments() {
+        let lines = render_markdown("1. first\n2. second\n3. third");
+        let t = text_of(&lines);
+        assert!(t.contains("1. first"), "got: {t}");
+        assert!(t.contains("2. second"), "got: {t}");
+        assert!(t.contains("3. third"), "got: {t}");
+    }
+
+    #[test]
+    fn test_blockquote_multi_paragraph_marks_each() {
+        let lines = render_markdown("> para one\n>\n> para two");
+        let marked = lines
+            .iter()
+            .filter(|l| l.spans.iter().any(|s| s.style == PreviewStyle::BlockQuote))
+            .count();
+        assert!(marked >= 2, "expected both blockquote paragraphs marked, got {marked}");
     }
 }
