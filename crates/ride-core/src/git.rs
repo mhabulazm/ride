@@ -14,7 +14,10 @@ pub enum LineStatus {
 pub struct GitLineDiff {
     /// `status[i]` is the change state of current line `i`.
     pub status: Vec<LineStatus>,
-    /// Indices of current lines that have one or more deleted lines immediately above them.
+    /// Indices of current lines that have one or more deleted lines immediately
+    /// above them. Special case: deletions that fall past the end of the current
+    /// file are anchored to the last line (`current_line_count - 1`), so an entry
+    /// pointing at the last line may represent trailing deletions below it.
     pub deleted_before: HashSet<usize>,
 }
 
@@ -209,5 +212,12 @@ mod tests {
     fn test_removed_at_end_marks_last_line() {
         let d = diff_lines("a\nb\n", "a\n");
         assert!(d.deleted_before.contains(&0));
+    }
+
+    #[test]
+    fn test_all_deleted_empty_current() {
+        let d = diff_lines("a\nb\n", "");
+        assert!(d.status.is_empty());
+        assert!(d.deleted_before.is_empty());
     }
 }
