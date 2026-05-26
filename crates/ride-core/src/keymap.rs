@@ -317,6 +317,7 @@ impl KeymapConfig {
             key('i', Modifiers::ctrl_shift()),
             Command::LspFormat,
         );
+        editor.insert(key('e', Modifiers::ctrl()), Command::TogglePreview);
         // Folding: Ctrl+[ to toggle, Ctrl+] to unfold all
         editor.insert(key('[', Modifiers::ctrl()), Command::ToggleFold);
         editor.insert(key(']', Modifiers::ctrl()), Command::UnfoldAll);
