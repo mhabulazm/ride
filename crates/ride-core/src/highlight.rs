@@ -54,6 +54,7 @@ pub enum TreeSitterLang {
     Go,
     C,
     Cpp,
+    Html,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -80,6 +81,7 @@ pub fn detect_highlighter(path: &Path) -> HighlighterType {
         Some("cpp" | "cc" | "hpp" | "cxx" | "hxx") => {
             HighlighterType::TreeSitter(TreeSitterLang::Cpp)
         }
+        Some("html" | "htm") => HighlighterType::TreeSitter(TreeSitterLang::Html),
         Some("kt") => HighlighterType::Regex(RegexLang::Code),
         Some("md") => HighlighterType::TreeSitter(TreeSitterLang::Markdown),
         Some("proto") => HighlighterType::Regex(RegexLang::Code),
@@ -87,6 +89,36 @@ pub fn detect_highlighter(path: &Path) -> HighlighterType {
         Some("mmd") => HighlighterType::Regex(RegexLang::Mermaid),
         Some("txt") => HighlighterType::Plain,
         _ => HighlighterType::Plain,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn test_html_extension_detected() {
+        assert_eq!(
+            detect_highlighter(Path::new("index.html")),
+            HighlighterType::TreeSitter(TreeSitterLang::Html)
+        );
+        assert_eq!(
+            detect_highlighter(Path::new("page.htm")),
+            HighlighterType::TreeSitter(TreeSitterLang::Html)
+        );
+    }
+
+    #[test]
+    fn test_html_highlights_tag_name() {
+        use crate::highlight::treesitter_hl::TreeSitterHighlighter;
+        let mut hl = TreeSitterHighlighter::new(TreeSitterLang::Html).unwrap();
+        let src = "<p class=\"x\">hi</p>";
+        hl.parse(src);
+        let spans = hl.highlight_line(src, 0);
+        // At least one Type span (the tag name) and one String span (the attr value).
+        assert!(spans.iter().any(|s| s.kind == HighlightKind::Type));
+        assert!(spans.iter().any(|s| s.kind == HighlightKind::String));
     }
 }
 

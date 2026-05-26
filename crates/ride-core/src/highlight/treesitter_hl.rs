@@ -30,6 +30,7 @@ impl TreeSitterHighlighter {
             TreeSitterLang::Go => Some(tree_sitter_go::LANGUAGE.into()),
             TreeSitterLang::C => Some(tree_sitter_c::LANGUAGE.into()),
             TreeSitterLang::Cpp => Some(tree_sitter_cpp::LANGUAGE.into()),
+            TreeSitterLang::Html => Some(tree_sitter_html::LANGUAGE.into()),
         }
     }
 
@@ -52,6 +53,7 @@ impl TreeSitterHighlighter {
             TreeSitterLang::Go => "go",
             TreeSitterLang::C => "c",
             TreeSitterLang::Cpp => "cpp",
+            TreeSitterLang::Html => "html",
         }
     }
 
@@ -147,6 +149,7 @@ impl TreeSitterHighlighter {
             }
             TreeSitterLang::Go => self.go_highlight(node_kind, parent_kind),
             TreeSitterLang::C | TreeSitterLang::Cpp => self.c_cpp_highlight(node_kind, parent_kind),
+            TreeSitterLang::Html => self.html_highlight(node_kind, parent_kind),
         }
     }
 
@@ -476,6 +479,18 @@ impl TreeSitterHighlighter {
                 HighlightKind::Punctuation
             }
 
+            _ => HighlightKind::Normal,
+        }
+    }
+
+    fn html_highlight(&self, node_kind: &str, _parent_kind: Option<&str>) -> HighlightKind {
+        match node_kind {
+            "comment" => HighlightKind::Comment,
+            "tag_name" | "erroneous_end_tag_name" => HighlightKind::Type,
+            "attribute_name" => HighlightKind::Variable,
+            "attribute_value" | "quoted_attribute_value" | "\"" | "'" => HighlightKind::String,
+            "doctype" => HighlightKind::Keyword,
+            "<" | ">" | "</" | "/>" | "=" => HighlightKind::Punctuation,
             _ => HighlightKind::Normal,
         }
     }
