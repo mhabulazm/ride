@@ -67,7 +67,9 @@ pub fn render_markdown(source: &str) -> Vec<PreviewLine> {
 
     let flush = |cur: &mut Vec<PreviewSpan>, lines: &mut Vec<PreviewLine>| {
         if !cur.is_empty() {
-            lines.push(PreviewLine { spans: std::mem::take(cur) });
+            lines.push(PreviewLine {
+                spans: std::mem::take(cur),
+            });
         }
     };
 
@@ -174,19 +176,31 @@ pub fn render_markdown(source: &str) -> Vec<PreviewLine> {
                     }
                 } else {
                     let style = inline_style(heading, bold, italic, in_link);
-                    cur.push(PreviewSpan { text: t.to_string(), style });
+                    cur.push(PreviewSpan {
+                        text: t.to_string(),
+                        style,
+                    });
                 }
             }
             Event::Code(t) => {
-                cur.push(PreviewSpan { text: t.to_string(), style: PreviewStyle::Code });
+                cur.push(PreviewSpan {
+                    text: t.to_string(),
+                    style: PreviewStyle::Code,
+                });
             }
             Event::SoftBreak | Event::HardBreak => {
                 let style = inline_style(heading, bold, italic, in_link);
-                cur.push(PreviewSpan { text: " ".to_string(), style });
+                cur.push(PreviewSpan {
+                    text: " ".to_string(),
+                    style,
+                });
             }
             Event::Rule => {
                 flush(&mut cur, &mut lines);
-                cur.push(PreviewSpan { text: "─".repeat(40), style: PreviewStyle::Rule });
+                cur.push(PreviewSpan {
+                    text: "─".repeat(40),
+                    style: PreviewStyle::Rule,
+                });
                 flush(&mut cur, &mut lines);
             }
             _ => {}
@@ -211,15 +225,24 @@ mod tests {
     #[test]
     fn test_heading_styled() {
         let lines = render_markdown("# Title");
-        assert!(lines[0].spans.iter().any(|s| s.style == PreviewStyle::Heading(1)));
+        assert!(lines[0]
+            .spans
+            .iter()
+            .any(|s| s.style == PreviewStyle::Heading(1)));
         assert!(text_of(&lines).contains("Title"));
     }
 
     #[test]
     fn test_bold_and_italic() {
         let lines = render_markdown("**b** and *i*");
-        assert!(lines.iter().flat_map(|l| &l.spans).any(|s| s.style == PreviewStyle::Bold));
-        assert!(lines.iter().flat_map(|l| &l.spans).any(|s| s.style == PreviewStyle::Italic));
+        assert!(lines
+            .iter()
+            .flat_map(|l| &l.spans)
+            .any(|s| s.style == PreviewStyle::Bold));
+        assert!(lines
+            .iter()
+            .flat_map(|l| &l.spans)
+            .any(|s| s.style == PreviewStyle::Italic));
     }
 
     #[test]
@@ -238,28 +261,40 @@ mod tests {
     #[test]
     fn test_code_block() {
         let lines = render_markdown("```\nlet x = 1;\n```");
-        assert!(lines.iter().flat_map(|l| &l.spans).any(|s| s.style == PreviewStyle::Code));
+        assert!(lines
+            .iter()
+            .flat_map(|l| &l.spans)
+            .any(|s| s.style == PreviewStyle::Code));
         assert!(text_of(&lines).contains("let x = 1;"));
     }
 
     #[test]
     fn test_blockquote() {
         let lines = render_markdown("> quoted");
-        assert!(lines.iter().flat_map(|l| &l.spans).any(|s| s.style == PreviewStyle::BlockQuote));
+        assert!(lines
+            .iter()
+            .flat_map(|l| &l.spans)
+            .any(|s| s.style == PreviewStyle::BlockQuote));
         assert!(text_of(&lines).contains("quoted"));
     }
 
     #[test]
     fn test_link_text_preserved() {
         let lines = render_markdown("[click](http://example.com)");
-        assert!(lines.iter().flat_map(|l| &l.spans).any(|s| s.style == PreviewStyle::Link));
+        assert!(lines
+            .iter()
+            .flat_map(|l| &l.spans)
+            .any(|s| s.style == PreviewStyle::Link));
         assert!(text_of(&lines).contains("click"));
     }
 
     #[test]
     fn test_thematic_break() {
         let lines = render_markdown("a\n\n---\n\nb");
-        assert!(lines.iter().flat_map(|l| &l.spans).any(|s| s.style == PreviewStyle::Rule));
+        assert!(lines
+            .iter()
+            .flat_map(|l| &l.spans)
+            .any(|s| s.style == PreviewStyle::Rule));
     }
 
     #[test]
@@ -278,7 +313,10 @@ mod tests {
             .iter()
             .filter(|l| l.spans.iter().any(|s| s.style == PreviewStyle::BlockQuote))
             .count();
-        assert!(marked >= 2, "expected both blockquote paragraphs marked, got {marked}");
+        assert!(
+            marked >= 2,
+            "expected both blockquote paragraphs marked, got {marked}"
+        );
     }
 
     #[test]

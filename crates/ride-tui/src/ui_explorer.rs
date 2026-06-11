@@ -71,7 +71,12 @@ pub fn render_explorer(frame: &mut Frame, area: Rect, app: &App) {
             ExplorerInputMode::Rename => "Rename: ",
             ExplorerInputMode::ConfirmDelete => "Delete? (y/n): ",
         };
-        let input_area = Rect::new(area.x, area.y + area.height.saturating_sub(1), area.width, 1);
+        let input_area = Rect::new(
+            area.x,
+            area.y + area.height.saturating_sub(1),
+            area.width,
+            1,
+        );
         let text = format!("{}{}", prompt, app.explorer_input);
         let para = Paragraph::new(text).style(Style::default().fg(Color::Yellow).bg(Color::Black));
         frame.render_widget(Clear, input_area);

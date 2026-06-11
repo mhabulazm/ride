@@ -93,8 +93,7 @@ pub fn render(frame: &mut Frame, app: &mut App) {
 }
 
 fn render_content(frame: &mut Frame, area: Rect, app: &mut App) {
-    let is_md = app.active_highlighter()
-        == HighlighterType::TreeSitter(TreeSitterLang::Markdown);
+    let is_md = app.active_highlighter() == HighlighterType::TreeSitter(TreeSitterLang::Markdown);
     if app.preview_active && is_md {
         render_preview(frame, area, app);
     } else {

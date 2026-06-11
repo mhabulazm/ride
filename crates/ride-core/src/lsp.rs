@@ -137,6 +137,9 @@ pub enum LspEvent {
     FormatResult {
         edits: Vec<TextEdit>,
     },
+    Rename {
+        edit: Option<WorkspaceEdit>,
+    },
     Error(String),
 }
 
@@ -292,7 +295,10 @@ impl LspClient {
             "params": params,
         });
 
-        self.pending_requests.lock().unwrap().insert(id, method.to_string());
+        self.pending_requests
+            .lock()
+            .unwrap()
+            .insert(id, method.to_string());
         let content = msg.to_string();
         let encoded = encode_message(&content);
         let _ = self.writer.write_all(&encoded);
@@ -336,6 +342,7 @@ impl LspClient {
                         }
                     },
                     "references": {},
+                    "rename": {},
                     "formatting": { "dynamicRegistration": false }
                 }
             }
@@ -445,6 +452,18 @@ impl LspClient {
         );
     }
 
+    pub fn rename(&mut self, path: &Path, line: u32, character: u32, new_name: &str) {
+        let uri = path_to_uri(path);
+        self.send_request(
+            "textDocument/rename",
+            json!({
+                "textDocument": { "uri": uri },
+                "position": { "line": line, "character": character },
+                "newName": new_name,
+            }),
+        );
+    }
+
     pub fn format(&mut self, path: &Path) {
         let uri = path_to_uri(path);
         self.send_request(
@@ -491,6 +510,7 @@ pub struct LspManager {
     pub pending_code_actions: Option<Vec<CodeAction>>,
     pub pending_references: Option<Vec<ReferenceLocation>>,
     pub pending_format: Option<Vec<TextEdit>>,
+    pub pending_rename: Option<WorkspaceEdit>,
     configs: HashMap<String, LspServerConfig>,
     root_path: PathBuf,
     initialized_servers: HashMap<String, bool>,
@@ -507,6 +527,7 @@ impl LspManager {
             pending_code_actions: None,
             pending_references: None,
             pending_format: None,
+            pending_rename: None,
             configs,
             root_path: root_path.to_path_buf(),
             initialized_servers: HashMap::new(),
@@ -585,7 +606,13 @@ impl LspManager {
         }
     }
 
-    pub fn request_code_actions(&mut self, path: &Path, line: u32, col: u32, diagnostics_json: Value) {
+    pub fn request_code_actions(
+        &mut self,
+        path: &Path,
+        line: u32,
+        col: u32,
+        diagnostics_json: Value,
+    ) {
         if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
             let ext = ext.to_lowercase();
             self.ensure_server_for_extension(&ext);
@@ -614,6 +641,17 @@ impl LspManager {
             if let Some(client) = self.clients.get_mut(&ext) {
                 self.pending_format = None;
                 client.format(path);
+            }
+        }
+    }
+
+    pub fn request_rename(&mut self, path: &Path, line: u32, col: u32, new_name: &str) {
+        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+            let ext = ext.to_lowercase();
+            self.ensure_server_for_extension(&ext);
+            if let Some(client) = self.clients.get_mut(&ext) {
+                self.pending_rename = None;
+                client.rename(path, line, col, new_name);
             }
         }
     }
@@ -657,6 +695,11 @@ impl LspManager {
                     }
                     LspEvent::FormatResult { edits } => {
                         self.pending_format = Some(edits);
+                    }
+                    LspEvent::Rename { edit } => {
+                        self.pending_rename = Some(edit.unwrap_or_else(|| WorkspaceEdit {
+                            changes: HashMap::new(),
+                        }));
                     }
                     LspEvent::Error(_) => {}
                 }
@@ -708,6 +751,9 @@ fn parse_response(method: &str, result: &Value) -> LspEvent {
         "textDocument/codeAction" => parse_code_actions_response(result),
         "textDocument/references" => parse_references_response(result),
         "textDocument/formatting" => parse_formatting_response(result),
+        "textDocument/rename" => LspEvent::Rename {
+            edit: parse_workspace_edit(result),
+        },
         // For initialize and other responses, just ignore
         _ => LspEvent::Error(String::new()),
     }
@@ -794,7 +840,10 @@ fn parse_code_actions_response(result: &Value) -> LspEvent {
             arr.iter()
                 .filter_map(|item| {
                     let title = item.get("title")?.as_str()?.to_string();
-                    let kind = item.get("kind").and_then(|k| k.as_str()).map(|s| s.to_string());
+                    let kind = item
+                        .get("kind")
+                        .and_then(|k| k.as_str())
+                        .map(|s| s.to_string());
                     let edit = item.get("edit").and_then(parse_workspace_edit);
                     Some(CodeAction { title, kind, edit })
                 })
@@ -836,15 +885,13 @@ fn parse_references_response(result: &Value) -> LspEvent {
                     let uri = loc.get("uri")?.as_str()?;
                     let path = uri_to_path(uri);
                     let range = loc.get("range")?;
-                    let line = range
-                        .get("start")?
-                        .get("line")?
-                        .as_u64()? as usize;
-                    let col = range
-                        .get("start")?
-                        .get("character")?
-                        .as_u64()? as usize;
-                    Some(ReferenceLocation { file: path, line, col })
+                    let line = range.get("start")?.get("line")?.as_u64()? as usize;
+                    let col = range.get("start")?.get("character")?.as_u64()? as usize;
+                    Some(ReferenceLocation {
+                        file: path,
+                        line,
+                        col,
+                    })
                 })
                 .collect()
         })
@@ -858,8 +905,7 @@ fn parse_formatting_response(result: &Value) -> LspEvent {
         .map(|arr| {
             arr.iter()
                 .filter_map(|e| {
-                    let range: LspRange =
-                        serde_json::from_value(e.get("range")?.clone()).ok()?;
+                    let range: LspRange = serde_json::from_value(e.get("range")?.clone()).ok()?;
                     let new_text = e.get("newText")?.as_str()?.to_string();
                     Some(TextEdit { range, new_text })
                 })
@@ -1156,6 +1202,34 @@ mod tests {
                 assert_eq!(edits[0].new_text, "hello");
             }
             _ => panic!("Expected FormatResult"),
+        }
+    }
+
+    #[test]
+    fn test_parse_response_rename() {
+        let result = serde_json::json!({
+            "changes": {
+                "file:///tmp/a.rs": [
+                    { "range": { "start": { "line": 1, "character": 4 }, "end": { "line": 1, "character": 7 } }, "newText": "bar" }
+                ]
+            }
+        });
+        match parse_response("textDocument/rename", &result) {
+            LspEvent::Rename { edit: Some(we) } => {
+                assert_eq!(we.changes.len(), 1);
+                let edits = we.changes.values().next().unwrap();
+                assert_eq!(edits[0].new_text, "bar");
+            }
+            other => panic!("expected Rename{{Some}}, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_response_rename_null() {
+        let result = serde_json::json!(null);
+        match parse_response("textDocument/rename", &result) {
+            LspEvent::Rename { edit: None } => {}
+            other => panic!("expected Rename{{None}}, got {other:?}"),
         }
     }
 

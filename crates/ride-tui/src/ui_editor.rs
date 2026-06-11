@@ -167,7 +167,11 @@ pub fn render_editor(frame: &mut Frame, area: Rect, app: &mut App) {
         let (git_symbol, git_symbol_style, git_tint): (&str, Style, Option<ratatui::style::Color>) =
             match &git_diff {
                 Some(d) => {
-                    let st = d.status.get(buf_row).copied().unwrap_or(LineStatus::Unchanged);
+                    let st = d
+                        .status
+                        .get(buf_row)
+                        .copied()
+                        .unwrap_or(LineStatus::Unchanged);
                     match st {
                         LineStatus::Added => ("│", git_added_style, git_added_tint),
                         LineStatus::Modified => ("│", git_modified_style, git_modified_tint),

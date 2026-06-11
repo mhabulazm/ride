@@ -204,7 +204,11 @@ impl App {
     pub fn active_git_diff(&self) -> Option<ride_core::git::GitLineDiff> {
         let buf = self.tabs.active_buffer()?;
         let current = buf.rope.to_string();
-        match self.git_baselines.get(self.tabs.active).and_then(|b| b.as_ref()) {
+        match self
+            .git_baselines
+            .get(self.tabs.active)
+            .and_then(|b| b.as_ref())
+        {
             Some(base) => Some(ride_core::git::diff_lines(base, &current)),
             None => {
                 if self.git_is_repo {
@@ -261,13 +265,15 @@ impl App {
                     return;
                 }
                 Command::PageDown => {
-                    self.preview_scroll =
-                        self.preview_scroll.saturating_add(self.viewport_height.max(1));
+                    self.preview_scroll = self
+                        .preview_scroll
+                        .saturating_add(self.viewport_height.max(1));
                     return;
                 }
                 Command::PageUp => {
-                    self.preview_scroll =
-                        self.preview_scroll.saturating_sub(self.viewport_height.max(1));
+                    self.preview_scroll = self
+                        .preview_scroll
+                        .saturating_sub(self.viewport_height.max(1));
                     return;
                 }
                 Command::TogglePreview => {
@@ -709,7 +715,8 @@ impl App {
             }
             Command::CodeActionConfirm => {
                 if self.code_action_active {
-                    if let Some(action) = self.code_action_items.get(self.code_action_index).cloned()
+                    if let Some(action) =
+                        self.code_action_items.get(self.code_action_index).cloned()
                     {
                         if let Some(ref edit) = action.edit {
                             self.apply_workspace_edit(edit);
