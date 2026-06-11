@@ -295,7 +295,10 @@ impl LspClient {
             "params": params,
         });
 
-        self.pending_requests.lock().unwrap().insert(id, method.to_string());
+        self.pending_requests
+            .lock()
+            .unwrap()
+            .insert(id, method.to_string());
         let content = msg.to_string();
         let encoded = encode_message(&content);
         let _ = self.writer.write_all(&encoded);
@@ -603,7 +606,13 @@ impl LspManager {
         }
     }
 
-    pub fn request_code_actions(&mut self, path: &Path, line: u32, col: u32, diagnostics_json: Value) {
+    pub fn request_code_actions(
+        &mut self,
+        path: &Path,
+        line: u32,
+        col: u32,
+        diagnostics_json: Value,
+    ) {
         if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
             let ext = ext.to_lowercase();
             self.ensure_server_for_extension(&ext);
@@ -688,8 +697,9 @@ impl LspManager {
                         self.pending_format = Some(edits);
                     }
                     LspEvent::Rename { edit } => {
-                        self.pending_rename =
-                            Some(edit.unwrap_or_else(|| WorkspaceEdit { changes: HashMap::new() }));
+                        self.pending_rename = Some(edit.unwrap_or_else(|| WorkspaceEdit {
+                            changes: HashMap::new(),
+                        }));
                     }
                     LspEvent::Error(_) => {}
                 }
@@ -741,7 +751,9 @@ fn parse_response(method: &str, result: &Value) -> LspEvent {
         "textDocument/codeAction" => parse_code_actions_response(result),
         "textDocument/references" => parse_references_response(result),
         "textDocument/formatting" => parse_formatting_response(result),
-        "textDocument/rename" => LspEvent::Rename { edit: parse_workspace_edit(result) },
+        "textDocument/rename" => LspEvent::Rename {
+            edit: parse_workspace_edit(result),
+        },
         // For initialize and other responses, just ignore
         _ => LspEvent::Error(String::new()),
     }
@@ -828,7 +840,10 @@ fn parse_code_actions_response(result: &Value) -> LspEvent {
             arr.iter()
                 .filter_map(|item| {
                     let title = item.get("title")?.as_str()?.to_string();
-                    let kind = item.get("kind").and_then(|k| k.as_str()).map(|s| s.to_string());
+                    let kind = item
+                        .get("kind")
+                        .and_then(|k| k.as_str())
+                        .map(|s| s.to_string());
                     let edit = item.get("edit").and_then(parse_workspace_edit);
                     Some(CodeAction { title, kind, edit })
                 })
@@ -870,15 +885,13 @@ fn parse_references_response(result: &Value) -> LspEvent {
                     let uri = loc.get("uri")?.as_str()?;
                     let path = uri_to_path(uri);
                     let range = loc.get("range")?;
-                    let line = range
-                        .get("start")?
-                        .get("line")?
-                        .as_u64()? as usize;
-                    let col = range
-                        .get("start")?
-                        .get("character")?
-                        .as_u64()? as usize;
-                    Some(ReferenceLocation { file: path, line, col })
+                    let line = range.get("start")?.get("line")?.as_u64()? as usize;
+                    let col = range.get("start")?.get("character")?.as_u64()? as usize;
+                    Some(ReferenceLocation {
+                        file: path,
+                        line,
+                        col,
+                    })
                 })
                 .collect()
         })
@@ -892,8 +905,7 @@ fn parse_formatting_response(result: &Value) -> LspEvent {
         .map(|arr| {
             arr.iter()
                 .filter_map(|e| {
-                    let range: LspRange =
-                        serde_json::from_value(e.get("range")?.clone()).ok()?;
+                    let range: LspRange = serde_json::from_value(e.get("range")?.clone()).ok()?;
                     let new_text = e.get("newText")?.as_str()?.to_string();
                     Some(TextEdit { range, new_text })
                 })

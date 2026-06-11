@@ -228,7 +228,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path();
         let run = |args: &[&str]| {
-            Command::new("git").arg("-C").arg(path).args(args).output().unwrap();
+            Command::new("git")
+                .arg("-C")
+                .arg(path)
+                .args(args)
+                .output()
+                .unwrap();
         };
         run(&["init"]);
         run(&["config", "user.email", "t@t"]);
