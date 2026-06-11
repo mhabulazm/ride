@@ -1,5 +1,12 @@
 # RIDE Enhancement Ideas
 
+## Recently Added
+
+- HTML syntax highlighting (`.html`, `.htm`) via tree-sitter
+- Markdown preview toggle (Ctrl+E)
+- Git change markers in the gutter with live diff against HEAD (`+a ~m -d` counts in status bar)
+- `colorblind` built-in theme (red-green-safe, Okabe-Ito palette)
+
 ## Editing Fundamentals
 
 - Text selection and clipboard (copy/cut/paste)
@@ -8,7 +15,6 @@
 
 ## File Handling
 
-- File creation, rename, and delete from the explorer
 - Non-UTF-8 encoding support
 
 ## Navigation and UX
@@ -26,9 +32,10 @@
 
 ## Language Support
 
-- LSP code actions
+- LSP rename symbol
+- LSP signature help
 
 ## Infrastructure
 
-- CI pipeline
 - Plugin system for extensibility beyond keybindings
+- GUI frontend (egui/iced)

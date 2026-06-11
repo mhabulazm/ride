@@ -30,6 +30,9 @@ pub enum Command {
     FoldAll,
     UnfoldAll,
 
+    // Preview
+    TogglePreview,
+
     // File operations
     Save,
     Quit,
@@ -63,12 +66,37 @@ pub enum Command {
     LspHover,
     LspGotoDefinition,
     LspComplete,
+    LspCodeAction,
+    LspFindReferences,
+    LspFormat,
 
     // Completion menu
     CompletionUp,
     CompletionDown,
     CompletionConfirm,
     CompletionClose,
+
+    // Code action menu
+    CodeActionUp,
+    CodeActionDown,
+    CodeActionConfirm,
+    CodeActionClose,
+
+    // References panel
+    ReferencesUp,
+    ReferencesDown,
+    ReferencesConfirm,
+    ReferencesClose,
+
+    // Explorer file operations
+    ExplorerNewFile,
+    ExplorerNewFolder,
+    ExplorerRename,
+    ExplorerDelete,
+    ExplorerConfirmInput,
+    ExplorerCancelInput,
+    ExplorerInputChar(char),
+    ExplorerInputBackspace,
 
     // Go to line
     GoToLineOpen,
@@ -98,6 +126,9 @@ pub enum FocusPane {
     FuzzyFinder,
     GoToLine,
     Completion,
+    CodeAction,
+    References,
+    ExplorerInput,
 }
 
 /// Bindable commands (no data payload). Used for JSON keybinding deserialization.
@@ -140,13 +171,25 @@ pub enum SimpleCommand {
     ToggleFold,
     FoldAll,
     UnfoldAll,
+    TogglePreview,
     LspHover,
     LspGotoDefinition,
     LspComplete,
+    LspCodeAction,
+    LspFindReferences,
+    LspFormat,
     CompletionUp,
     CompletionDown,
     CompletionConfirm,
     CompletionClose,
+    CodeActionUp,
+    CodeActionDown,
+    CodeActionConfirm,
+    CodeActionClose,
+    ReferencesUp,
+    ReferencesDown,
+    ReferencesConfirm,
+    ReferencesClose,
     GoToLineOpen,
     GoToLineBackspace,
     GoToLineConfirm,
@@ -157,6 +200,13 @@ pub enum SimpleCommand {
     FuzzyConfirm,
     FuzzyClose,
     FuzzyBackspace,
+    ExplorerNewFile,
+    ExplorerNewFolder,
+    ExplorerRename,
+    ExplorerDelete,
+    ExplorerConfirmInput,
+    ExplorerCancelInput,
+    ExplorerInputBackspace,
 }
 
 impl SimpleCommand {
@@ -199,13 +249,25 @@ impl SimpleCommand {
             Self::ToggleFold => Command::ToggleFold,
             Self::FoldAll => Command::FoldAll,
             Self::UnfoldAll => Command::UnfoldAll,
+            Self::TogglePreview => Command::TogglePreview,
             Self::LspHover => Command::LspHover,
             Self::LspGotoDefinition => Command::LspGotoDefinition,
             Self::LspComplete => Command::LspComplete,
+            Self::LspCodeAction => Command::LspCodeAction,
+            Self::LspFindReferences => Command::LspFindReferences,
+            Self::LspFormat => Command::LspFormat,
             Self::CompletionUp => Command::CompletionUp,
             Self::CompletionDown => Command::CompletionDown,
             Self::CompletionConfirm => Command::CompletionConfirm,
             Self::CompletionClose => Command::CompletionClose,
+            Self::CodeActionUp => Command::CodeActionUp,
+            Self::CodeActionDown => Command::CodeActionDown,
+            Self::CodeActionConfirm => Command::CodeActionConfirm,
+            Self::CodeActionClose => Command::CodeActionClose,
+            Self::ReferencesUp => Command::ReferencesUp,
+            Self::ReferencesDown => Command::ReferencesDown,
+            Self::ReferencesConfirm => Command::ReferencesConfirm,
+            Self::ReferencesClose => Command::ReferencesClose,
             Self::GoToLineOpen => Command::GoToLineOpen,
             Self::GoToLineBackspace => Command::GoToLineBackspace,
             Self::GoToLineConfirm => Command::GoToLineConfirm,
@@ -216,6 +278,13 @@ impl SimpleCommand {
             Self::FuzzyConfirm => Command::FuzzyConfirm,
             Self::FuzzyClose => Command::FuzzyClose,
             Self::FuzzyBackspace => Command::FuzzyBackspace,
+            Self::ExplorerNewFile => Command::ExplorerNewFile,
+            Self::ExplorerNewFolder => Command::ExplorerNewFolder,
+            Self::ExplorerRename => Command::ExplorerRename,
+            Self::ExplorerDelete => Command::ExplorerDelete,
+            Self::ExplorerConfirmInput => Command::ExplorerConfirmInput,
+            Self::ExplorerCancelInput => Command::ExplorerCancelInput,
+            Self::ExplorerInputBackspace => Command::ExplorerInputBackspace,
         }
     }
 }

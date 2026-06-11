@@ -200,4 +200,76 @@ impl Explorer {
     pub fn selected_entry(&self) -> Option<&FileEntry> {
         self.entries.get(self.selected)
     }
+
+    pub fn create_file(&mut self, name: &str) -> std::io::Result<PathBuf> {
+        let parent = self.selected_parent_dir();
+        let path = parent.join(name);
+        std::fs::File::create(&path)?;
+        self.refresh_keeping_selection();
+        Ok(path)
+    }
+
+    pub fn create_folder(&mut self, name: &str) -> std::io::Result<PathBuf> {
+        let parent = self.selected_parent_dir();
+        let path = parent.join(name);
+        std::fs::create_dir_all(&path)?;
+        self.refresh_keeping_selection();
+        Ok(path)
+    }
+
+    pub fn rename_selected(&mut self, new_name: &str) -> std::io::Result<PathBuf> {
+        if let Some(entry) = self.entries.get(self.selected) {
+            let old_path = entry.path.clone();
+            let new_path = old_path.parent().unwrap_or(&self.root).join(new_name);
+            std::fs::rename(&old_path, &new_path)?;
+            self.refresh_keeping_selection();
+            Ok(new_path)
+        } else {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "No selection",
+            ))
+        }
+    }
+
+    pub fn delete_selected(&mut self) -> std::io::Result<()> {
+        if let Some(entry) = self.entries.get(self.selected) {
+            if entry.is_dir {
+                std::fs::remove_dir_all(&entry.path)?;
+            } else {
+                std::fs::remove_file(&entry.path)?;
+            }
+            self.refresh_keeping_selection();
+            Ok(())
+        } else {
+            Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "No selection",
+            ))
+        }
+    }
+
+    fn selected_parent_dir(&self) -> PathBuf {
+        if let Some(entry) = self.entries.get(self.selected) {
+            if entry.is_dir {
+                entry.path.clone()
+            } else {
+                entry.path.parent().unwrap_or(&self.root).to_path_buf()
+            }
+        } else {
+            self.root.clone()
+        }
+    }
+
+    fn refresh_keeping_selection(&mut self) {
+        let old_selected_path = self.entries.get(self.selected).map(|e| e.path.clone());
+        self.refresh();
+        if let Some(old_path) = old_selected_path {
+            if let Some(idx) = self.entries.iter().position(|e| e.path == old_path) {
+                self.selected = idx;
+            } else {
+                self.selected = self.selected.min(self.entries.len().saturating_sub(1));
+            }
+        }
+    }
 }

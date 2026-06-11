@@ -1,11 +1,14 @@
 mod app;
 mod theme_style;
 mod ui;
+mod ui_code_action;
 mod ui_completion;
 mod ui_editor;
 mod ui_explorer;
 mod ui_fuzzy;
 mod ui_goto;
+mod ui_preview;
+mod ui_references;
 mod ui_search;
 mod ui_status;
 mod ui_tabs;

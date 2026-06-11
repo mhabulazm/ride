@@ -21,8 +21,10 @@ tree-sitter-javascript = "0.25"
 tree-sitter-go = "0.25"
 tree-sitter-c = "0.24"
 tree-sitter-cpp = "0.23"
+tree-sitter-html = "0.23"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+pulldown-cmark = { version = "0.12", default-features = false }
 
 [dev-dependencies]
 tempfile = "3"

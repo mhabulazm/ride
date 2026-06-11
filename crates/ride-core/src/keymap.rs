@@ -127,6 +127,12 @@ struct KeybindingsFile {
     goto_line: Vec<BindingEntry>,
     #[serde(default)]
     completion: Vec<BindingEntry>,
+    #[serde(default)]
+    code_action: Vec<BindingEntry>,
+    #[serde(default)]
+    references: Vec<BindingEntry>,
+    #[serde(default)]
+    explorer_input: Vec<BindingEntry>,
 }
 
 #[derive(Deserialize)]
@@ -144,6 +150,9 @@ pub struct KeymapConfig {
     fuzzy: HashMap<KeyEvent, Command>,
     goto_line: HashMap<KeyEvent, Command>,
     completion: HashMap<KeyEvent, Command>,
+    code_action: HashMap<KeyEvent, Command>,
+    references: HashMap<KeyEvent, Command>,
+    explorer_input: HashMap<KeyEvent, Command>,
 }
 
 impl KeymapConfig {
@@ -193,6 +202,23 @@ impl KeymapConfig {
         for entry in &file.completion {
             if let Some(key) = parse_key_string(&entry.key) {
                 config.completion.insert(key, entry.command.into_command());
+            }
+        }
+        for entry in &file.code_action {
+            if let Some(key) = parse_key_string(&entry.key) {
+                config.code_action.insert(key, entry.command.into_command());
+            }
+        }
+        for entry in &file.references {
+            if let Some(key) = parse_key_string(&entry.key) {
+                config.references.insert(key, entry.command.into_command());
+            }
+        }
+        for entry in &file.explorer_input {
+            if let Some(key) = parse_key_string(&entry.key) {
+                config
+                    .explorer_input
+                    .insert(key, entry.command.into_command());
             }
         }
 
@@ -282,6 +308,16 @@ impl KeymapConfig {
         editor.insert(key('h', Modifiers::ctrl()), Command::LspHover);
         editor.insert(key('d', Modifiers::ctrl()), Command::LspGotoDefinition);
         editor.insert(key(' ', Modifiers::ctrl()), Command::LspComplete);
+        editor.insert(key('.', Modifiers::ctrl()), Command::LspCodeAction);
+        editor.insert(
+            key('r', Modifiers::ctrl_shift()),
+            Command::LspFindReferences,
+        );
+        editor.insert(
+            key('i', Modifiers::ctrl_shift()),
+            Command::LspFormat,
+        );
+        editor.insert(key('e', Modifiers::ctrl()), Command::TogglePreview);
         // Folding: Ctrl+[ to toggle, Ctrl+] to unfold all
         editor.insert(key('[', Modifiers::ctrl()), Command::ToggleFold);
         editor.insert(key(']', Modifiers::ctrl()), Command::UnfoldAll);
@@ -307,6 +343,10 @@ impl KeymapConfig {
         explorer.insert(special(KeyCode::Enter), Command::ExplorerEnter);
         explorer.insert(special(KeyCode::Tab), Command::FocusEditor);
         explorer.insert(special(KeyCode::Esc), Command::FocusEditor);
+        explorer.insert(key('n', Modifiers::none()), Command::ExplorerNewFile);
+        explorer.insert(key('N', Modifiers::none()), Command::ExplorerNewFolder);
+        explorer.insert(key('r', Modifiers::none()), Command::ExplorerRename);
+        explorer.insert(key('d', Modifiers::none()), Command::ExplorerDelete);
 
         // Search bindings
         search.insert(special(KeyCode::Esc), Command::SearchClose);
@@ -338,6 +378,26 @@ impl KeymapConfig {
         completion.insert(special(KeyCode::Up), Command::CompletionUp);
         completion.insert(special(KeyCode::Down), Command::CompletionDown);
 
+        // Code action bindings
+        let mut code_action = HashMap::new();
+        code_action.insert(special(KeyCode::Esc), Command::CodeActionClose);
+        code_action.insert(special(KeyCode::Enter), Command::CodeActionConfirm);
+        code_action.insert(special(KeyCode::Up), Command::CodeActionUp);
+        code_action.insert(special(KeyCode::Down), Command::CodeActionDown);
+
+        // References bindings
+        let mut references = HashMap::new();
+        references.insert(special(KeyCode::Esc), Command::ReferencesClose);
+        references.insert(special(KeyCode::Enter), Command::ReferencesConfirm);
+        references.insert(special(KeyCode::Up), Command::ReferencesUp);
+        references.insert(special(KeyCode::Down), Command::ReferencesDown);
+
+        // Explorer input bindings
+        let mut explorer_input = HashMap::new();
+        explorer_input.insert(special(KeyCode::Esc), Command::ExplorerCancelInput);
+        explorer_input.insert(special(KeyCode::Enter), Command::ExplorerConfirmInput);
+        explorer_input.insert(special(KeyCode::Backspace), Command::ExplorerInputBackspace);
+
         let mut config = Self {
             editor,
             explorer,
@@ -345,6 +405,9 @@ impl KeymapConfig {
             fuzzy,
             goto_line,
             completion,
+            code_action,
+            references,
+            explorer_input,
         };
 
         if preset == KeymapPreset::Mac {
@@ -380,6 +443,9 @@ impl KeymapConfig {
         add_super_aliases(&mut self.fuzzy);
         add_super_aliases(&mut self.goto_line);
         add_super_aliases(&mut self.completion);
+        add_super_aliases(&mut self.code_action);
+        add_super_aliases(&mut self.references);
+        add_super_aliases(&mut self.explorer_input);
     }
 
     /// Map a key event to a command, using the bindings for the given focus pane.
@@ -393,6 +459,9 @@ impl KeymapConfig {
             FocusPane::FuzzyFinder => &self.fuzzy,
             FocusPane::GoToLine => &self.goto_line,
             FocusPane::Completion => &self.completion,
+            FocusPane::CodeAction => &self.code_action,
+            FocusPane::References => &self.references,
+            FocusPane::ExplorerInput => &self.explorer_input,
         };
 
         if let Some(cmd) = table.get(&event) {
@@ -427,6 +496,13 @@ impl KeymapConfig {
                 if let KeyCode::Char(c) = event.code {
                     if !has_modifier && c.is_ascii_digit() {
                         return Command::GoToLineInput(c);
+                    }
+                }
+            }
+            FocusPane::ExplorerInput => {
+                if let KeyCode::Char(c) = event.code {
+                    if !has_modifier {
+                        return Command::ExplorerInputChar(c);
                     }
                 }
             }

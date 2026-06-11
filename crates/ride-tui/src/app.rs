@@ -5,7 +5,7 @@ use ride_core::fuzzy::FuzzyFinder;
 use ride_core::highlight::treesitter_hl::TreeSitterHighlighter;
 use ride_core::highlight::{self, HighlighterType};
 use ride_core::keymap::{self, KeymapConfig};
-use ride_core::lsp::{CompletionItem, LspManager};
+use ride_core::lsp::{CodeAction, CompletionItem, LspManager, ReferenceLocation};
 use ride_core::search::SearchState;
 use ride_core::settings::Settings;
 use ride_core::tab::TabManager;
@@ -25,6 +25,7 @@ pub struct App {
     pub highlighter_types: Vec<HighlighterType>,
     pub ts_highlighters: Vec<Option<TreeSitterHighlighter>>,
     pub fold_states: Vec<FoldState>,
+    pub git_baselines: Vec<Option<String>>,
     pub keymap: KeymapConfig,
     pub fuzzy: FuzzyFinder,
     pub goto_line_input: String,
@@ -35,8 +36,27 @@ pub struct App {
     pub completion_items: Vec<CompletionItem>,
     pub completion_index: usize,
     pub completion_active: bool,
+    pub code_action_items: Vec<CodeAction>,
+    pub code_action_index: usize,
+    pub code_action_active: bool,
+    pub reference_locations: Vec<ReferenceLocation>,
+    pub reference_index: usize,
+    pub reference_active: bool,
+    pub explorer_input: String,
+    pub explorer_input_mode: Option<ExplorerInputMode>,
     pub theme: Theme,
+    pub git_is_repo: bool,
+    pub preview_active: bool,
+    pub preview_scroll: usize,
     doc_versions: std::collections::HashMap<PathBuf, i32>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExplorerInputMode {
+    NewFile,
+    NewFolder,
+    Rename,
+    ConfirmDelete,
 }
 
 impl App {
@@ -54,6 +74,7 @@ impl App {
         let fuzzy = FuzzyFinder::new(&working_dir);
         let theme = settings.resolve_theme();
         let lsp = LspManager::new(settings.lsp.clone(), &working_dir);
+        let git_is_repo = ride_core::git::is_repo(&working_dir);
         let mut app = Self {
             tabs: TabManager::new(),
             explorer,
@@ -76,7 +97,19 @@ impl App {
             completion_items: Vec::new(),
             completion_index: 0,
             completion_active: false,
+            code_action_items: Vec::new(),
+            code_action_index: 0,
+            code_action_active: false,
+            reference_locations: Vec::new(),
+            reference_index: 0,
+            reference_active: false,
+            explorer_input: String::new(),
+            explorer_input_mode: None,
             theme,
+            git_baselines: Vec::new(),
+            git_is_repo,
+            preview_active: false,
+            preview_scroll: 0,
             doc_versions: std::collections::HashMap::new(),
         };
 
@@ -122,6 +155,7 @@ impl App {
                 } else {
                     self.ts_highlighters[self.tabs.active] = None;
                 }
+                self.refresh_git_baseline();
                 self.focus = FocusPane::Editor;
                 self.status_message = format!("Opened {}", path.display());
                 // Notify LSP
@@ -144,6 +178,47 @@ impl App {
             .get(self.tabs.active)
             .copied()
             .unwrap_or(HighlighterType::Plain)
+    }
+
+    /// Refresh the committed (HEAD) baseline for the active tab.
+    pub fn refresh_git_baseline(&mut self) {
+        self.refresh_git_baseline_for(self.tabs.active);
+    }
+
+    /// Refresh the committed (HEAD) baseline for the tab at `index`.
+    pub fn refresh_git_baseline_for(&mut self, index: usize) {
+        while self.git_baselines.len() < self.tabs.tabs.len() {
+            self.git_baselines.push(None);
+        }
+        let path = match self.tabs.tabs.get(index).and_then(|b| b.file_path.clone()) {
+            Some(p) => p,
+            None => return,
+        };
+        let baseline = ride_core::git::head_blob(&self.working_dir, &path);
+        if let Some(slot) = self.git_baselines.get_mut(index) {
+            *slot = baseline;
+        }
+    }
+
+    /// Compute the git line diff for the active buffer, if in a repo.
+    pub fn active_git_diff(&self) -> Option<ride_core::git::GitLineDiff> {
+        let buf = self.tabs.active_buffer()?;
+        let current = buf.rope.to_string();
+        match self.git_baselines.get(self.tabs.active).and_then(|b| b.as_ref()) {
+            Some(base) => Some(ride_core::git::diff_lines(base, &current)),
+            None => {
+                if self.git_is_repo {
+                    // Untracked file inside a repo: treat every line as added.
+                    let line_count = current.lines().count();
+                    Some(ride_core::git::GitLineDiff {
+                        status: vec![ride_core::git::LineStatus::Added; line_count],
+                        deleted_before: std::collections::HashSet::new(),
+                    })
+                } else {
+                    None
+                }
+            }
+        }
     }
 
     /// Reparse tree-sitter for the active tab if it has one.
@@ -175,6 +250,47 @@ impl App {
     }
 
     pub fn handle_command(&mut self, cmd: Command) {
+        if self.preview_active {
+            match &cmd {
+                Command::MoveDown => {
+                    self.preview_scroll = self.preview_scroll.saturating_add(1);
+                    return;
+                }
+                Command::MoveUp => {
+                    self.preview_scroll = self.preview_scroll.saturating_sub(1);
+                    return;
+                }
+                Command::PageDown => {
+                    self.preview_scroll =
+                        self.preview_scroll.saturating_add(self.viewport_height.max(1));
+                    return;
+                }
+                Command::PageUp => {
+                    self.preview_scroll =
+                        self.preview_scroll.saturating_sub(self.viewport_height.max(1));
+                    return;
+                }
+                Command::TogglePreview => {
+                    self.preview_active = false;
+                    return;
+                }
+                // Preview is a read-only view: swallow editing and cursor movement.
+                Command::InsertChar(_)
+                | Command::InsertNewline
+                | Command::DeleteBack
+                | Command::DeleteForward
+                | Command::Undo
+                | Command::MoveLeft
+                | Command::MoveRight
+                | Command::MoveToLineStart
+                | Command::MoveToLineEnd
+                | Command::MoveToFileStart
+                | Command::MoveToFileEnd
+                | Command::MoveWordLeft
+                | Command::MoveWordRight => return,
+                _ => {}
+            }
+        }
         match cmd {
             Command::None => {}
 
@@ -303,19 +419,37 @@ impl App {
                 }
             }
 
+            // Preview
+            Command::TogglePreview => {
+                let is_md = self.active_highlighter()
+                    == HighlighterType::TreeSitter(ride_core::highlight::TreeSitterLang::Markdown);
+                if is_md {
+                    self.preview_active = !self.preview_active;
+                    self.preview_scroll = 0;
+                } else {
+                    self.status_message =
+                        "Preview is only available for Markdown files".to_string();
+                }
+            }
+
             // File
             Command::Save => {
+                let mut saved_ok = false;
                 if let Some(buf) = self.tabs.active_buffer_mut() {
                     let path = buf.file_path.clone();
                     match buf.save() {
                         Ok(()) => {
                             self.status_message = "Saved.".to_string();
+                            saved_ok = true;
                             if let Some(ref p) = path {
                                 self.lsp.did_save(p);
                             }
                         }
                         Err(e) => self.status_message = format!("Save error: {}", e),
                     }
+                }
+                if saved_ok {
+                    self.refresh_git_baseline();
                 }
             }
             Command::Quit => {
@@ -331,8 +465,16 @@ impl App {
             }
 
             // Tabs
-            Command::NextTab => self.tabs.next_tab(),
-            Command::PrevTab => self.tabs.prev_tab(),
+            Command::NextTab => {
+                self.tabs.next_tab();
+                self.preview_active = false;
+                self.preview_scroll = 0;
+            }
+            Command::PrevTab => {
+                self.tabs.prev_tab();
+                self.preview_active = false;
+                self.preview_scroll = 0;
+            }
             Command::CloseTab => {
                 if let Some(buf) = self.tabs.active_buffer() {
                     if buf.dirty {
@@ -350,7 +492,12 @@ impl App {
                 if self.tabs.active < self.fold_states.len() {
                     self.fold_states.remove(self.tabs.active);
                 }
+                if self.tabs.active < self.git_baselines.len() {
+                    self.git_baselines.remove(self.tabs.active);
+                }
                 self.tabs.close_tab();
+                self.preview_active = false;
+                self.preview_scroll = 0;
             }
 
             // Explorer
@@ -533,6 +680,189 @@ impl App {
                 self.completion_items.clear();
                 self.focus = FocusPane::Editor;
             }
+
+            // LSP Code Actions
+            Command::LspCodeAction => {
+                if let Some(buf) = self.tabs.active_buffer() {
+                    if let Some(ref path) = buf.file_path.clone() {
+                        let row = buf.cursor_row as u32;
+                        let col = buf.cursor_col as u32;
+                        let diags_json = serde_json::json!([]);
+                        self.lsp.request_code_actions(path, row, col, diags_json);
+                    }
+                }
+            }
+            Command::CodeActionUp => {
+                if self.code_action_active && !self.code_action_items.is_empty() {
+                    if self.code_action_index > 0 {
+                        self.code_action_index -= 1;
+                    } else {
+                        self.code_action_index = self.code_action_items.len() - 1;
+                    }
+                }
+            }
+            Command::CodeActionDown => {
+                if self.code_action_active && !self.code_action_items.is_empty() {
+                    self.code_action_index =
+                        (self.code_action_index + 1) % self.code_action_items.len();
+                }
+            }
+            Command::CodeActionConfirm => {
+                if self.code_action_active {
+                    if let Some(action) = self.code_action_items.get(self.code_action_index).cloned()
+                    {
+                        if let Some(ref edit) = action.edit {
+                            self.apply_workspace_edit(edit);
+                        }
+                    }
+                    self.code_action_active = false;
+                    self.code_action_items.clear();
+                    self.focus = FocusPane::Editor;
+                }
+            }
+            Command::CodeActionClose => {
+                self.code_action_active = false;
+                self.code_action_items.clear();
+                self.focus = FocusPane::Editor;
+            }
+
+            // LSP Find References
+            Command::LspFindReferences => {
+                if let Some(buf) = self.tabs.active_buffer() {
+                    if let Some(ref path) = buf.file_path.clone() {
+                        let row = buf.cursor_row as u32;
+                        let col = buf.cursor_col as u32;
+                        self.lsp.request_references(path, row, col);
+                    }
+                }
+            }
+            Command::ReferencesUp => {
+                if self.reference_active && !self.reference_locations.is_empty() {
+                    if self.reference_index > 0 {
+                        self.reference_index -= 1;
+                    } else {
+                        self.reference_index = self.reference_locations.len() - 1;
+                    }
+                }
+            }
+            Command::ReferencesDown => {
+                if self.reference_active && !self.reference_locations.is_empty() {
+                    self.reference_index =
+                        (self.reference_index + 1) % self.reference_locations.len();
+                }
+            }
+            Command::ReferencesConfirm => {
+                if self.reference_active {
+                    if let Some(loc) = self.reference_locations.get(self.reference_index).cloned() {
+                        self.reference_active = false;
+                        self.reference_locations.clear();
+                        self.focus = FocusPane::Editor;
+                        self.open_file(&loc.file);
+                        if let Some(buf) = self.tabs.active_buffer_mut() {
+                            buf.cursor_row = loc.line;
+                            buf.cursor_col = loc.col;
+                        }
+                    }
+                }
+            }
+            Command::ReferencesClose => {
+                self.reference_active = false;
+                self.reference_locations.clear();
+                self.focus = FocusPane::Editor;
+            }
+
+            // LSP Format
+            Command::LspFormat => {
+                if let Some(buf) = self.tabs.active_buffer() {
+                    if let Some(ref path) = buf.file_path.clone() {
+                        self.lsp.request_format(path);
+                    }
+                }
+            }
+
+            // Explorer file operations
+            Command::ExplorerNewFile => {
+                self.explorer_input.clear();
+                self.explorer_input_mode = Some(ExplorerInputMode::NewFile);
+                self.focus = FocusPane::ExplorerInput;
+            }
+            Command::ExplorerNewFolder => {
+                self.explorer_input.clear();
+                self.explorer_input_mode = Some(ExplorerInputMode::NewFolder);
+                self.focus = FocusPane::ExplorerInput;
+            }
+            Command::ExplorerRename => {
+                if let Some(entry) = self.explorer.selected_entry() {
+                    self.explorer_input = entry.name.clone();
+                }
+                self.explorer_input_mode = Some(ExplorerInputMode::Rename);
+                self.focus = FocusPane::ExplorerInput;
+            }
+            Command::ExplorerDelete => {
+                self.explorer_input.clear();
+                self.explorer_input_mode = Some(ExplorerInputMode::ConfirmDelete);
+                self.focus = FocusPane::ExplorerInput;
+            }
+            Command::ExplorerInputChar(c) => {
+                self.explorer_input.push(c);
+            }
+            Command::ExplorerInputBackspace => {
+                self.explorer_input.pop();
+            }
+            Command::ExplorerConfirmInput => {
+                match self.explorer_input_mode {
+                    Some(ExplorerInputMode::NewFile) => {
+                        let name = self.explorer_input.clone();
+                        match self.explorer.create_file(&name) {
+                            Ok(path) => {
+                                self.status_message = format!("Created {}", name);
+                                self.open_file(&path);
+                            }
+                            Err(e) => self.status_message = format!("Error: {}", e),
+                        }
+                    }
+                    Some(ExplorerInputMode::NewFolder) => {
+                        let name = self.explorer_input.clone();
+                        match self.explorer.create_folder(&name) {
+                            Ok(_) => self.status_message = format!("Created folder {}", name),
+                            Err(e) => self.status_message = format!("Error: {}", e),
+                        }
+                    }
+                    Some(ExplorerInputMode::Rename) => {
+                        let name = self.explorer_input.clone();
+                        match self.explorer.rename_selected(&name) {
+                            Ok(_) => self.status_message = format!("Renamed to {}", name),
+                            Err(e) => self.status_message = format!("Error: {}", e),
+                        }
+                    }
+                    Some(ExplorerInputMode::ConfirmDelete) => {
+                        if self.explorer_input == "y" || self.explorer_input == "yes" {
+                            match self.explorer.delete_selected() {
+                                Ok(()) => self.status_message = "Deleted.".to_string(),
+                                Err(e) => self.status_message = format!("Error: {}", e),
+                            }
+                        }
+                    }
+                    None => {}
+                }
+                self.explorer_input.clear();
+                self.explorer_input_mode = None;
+                self.focus = FocusPane::Explorer;
+            }
+            Command::ExplorerCancelInput => {
+                self.explorer_input.clear();
+                self.explorer_input_mode = None;
+                self.focus = FocusPane::Explorer;
+            }
+        }
+    }
+
+    fn apply_workspace_edit(&mut self, edit: &ride_core::lsp::WorkspaceEdit) {
+        for (path, text_edits) in &edit.changes {
+            self.open_file(path);
+            if let Some(buf) = self.tabs.active_buffer_mut() {
+                buf.apply_text_edits(text_edits);
+            }
         }
     }
 
@@ -600,6 +930,42 @@ impl App {
             }
         }
 
+        // Handle code action result
+        if let Some(actions) = self.lsp.pending_code_actions.take() {
+            if !actions.is_empty() {
+                self.code_action_items = actions;
+                self.code_action_index = 0;
+                self.code_action_active = true;
+                self.focus = FocusPane::CodeAction;
+            } else {
+                self.status_message = "No code actions available.".to_string();
+            }
+        }
+
+        // Handle references result
+        if let Some(locations) = self.lsp.pending_references.take() {
+            if !locations.is_empty() {
+                self.reference_locations = locations;
+                self.reference_index = 0;
+                self.reference_active = true;
+                self.focus = FocusPane::References;
+            } else {
+                self.status_message = "No references found.".to_string();
+            }
+        }
+
+        // Handle format result
+        if let Some(edits) = self.lsp.pending_format.take() {
+            if !edits.is_empty() {
+                if let Some(buf) = self.tabs.active_buffer_mut() {
+                    buf.apply_text_edits(&edits);
+                }
+                self.status_message = "Formatted.".to_string();
+            } else {
+                self.status_message = "No formatting changes.".to_string();
+            }
+        }
+
         // Send didChange for dirty buffers
         for tab in &self.tabs.tabs {
             if tab.dirty {
@@ -622,14 +988,19 @@ impl App {
         }
         let elapsed = self.last_autosave.elapsed().as_secs();
         if elapsed >= self.settings.autosave_interval_secs {
-            let mut saved = Vec::new();
-            for tab in &mut self.tabs.tabs {
+            let mut saved_names = Vec::new();
+            let mut saved_indices = Vec::new();
+            for (idx, tab) in self.tabs.tabs.iter_mut().enumerate() {
                 if tab.dirty && tab.file_path.is_some() && tab.save().is_ok() {
-                    saved.push(tab.file_name());
+                    saved_names.push(tab.file_name());
+                    saved_indices.push(idx);
                 }
             }
-            if !saved.is_empty() {
-                self.status_message = format!("Autosaved: {}", saved.join(", "));
+            if !saved_names.is_empty() {
+                self.status_message = format!("Autosaved: {}", saved_names.join(", "));
+            }
+            for idx in saved_indices {
+                self.refresh_git_baseline_for(idx);
             }
             self.last_autosave = Instant::now();
         }

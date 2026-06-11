@@ -6,6 +6,7 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph};
 use ratatui::Frame;
 use ride_core::command::FocusPane;
+use ride_core::git::LineStatus;
 use ride_core::highlight::{self, HighlightKind};
 use ride_core::lsp::DiagnosticSeverity;
 use ride_core::theme::Theme;
@@ -71,6 +72,9 @@ pub fn render_editor(frame: &mut Frame, area: Rect, app: &mut App) {
             keybinding("Enter", "New line (auto-indent)"),
             keybinding("Tab", "Insert tab"),
             Line::from(""),
+            Line::from(Span::styled("  Preview", section_style)),
+            keybinding("Ctrl+E", "Toggle Markdown preview"),
+            Line::from(""),
             Line::from(Span::styled("  LSP", section_style)),
             keybinding("Ctrl+H", "Hover info"),
             keybinding("Ctrl+D", "Go to definition"),
@@ -87,10 +91,18 @@ pub fn render_editor(frame: &mut Frame, area: Rect, app: &mut App) {
     // Reparse tree-sitter if buffer is dirty
     app.reparse_tree_sitter();
 
+    let git_diff = app.active_git_diff();
+    let git_added_style = to_style(&theme.ui.git_added);
+    let git_modified_style = to_style(&theme.ui.git_modified);
+    let git_removed_style = to_style(&theme.ui.git_removed);
+    let git_added_tint = theme.ui.git_added.bg.as_ref().map(|c| parse_color(c));
+    let git_modified_tint = theme.ui.git_modified.bg.as_ref().map(|c| parse_color(c));
+
     let viewport_h = inner.height as usize;
+    let git_gutter_width = 1u16; // "│" / "_" / " "
     let diag_gutter_width = 2u16; // "● " or "  "
     let line_num_width = 4u16;
-    let gutter_width = diag_gutter_width + line_num_width;
+    let gutter_width = git_gutter_width + diag_gutter_width + line_num_width;
     let text_width = inner.width.saturating_sub(gutter_width + 1) as usize;
 
     if text_width == 0 {
@@ -150,6 +162,26 @@ pub fn render_editor(frame: &mut Frame, area: Rect, app: &mut App) {
 
         let line_text = buf.get_line(buf_row).unwrap_or_default();
         let display_text = line_text.trim_end_matches('\n');
+
+        // Git change marker + tint for this row
+        let (git_symbol, git_symbol_style, git_tint): (&str, Style, Option<ratatui::style::Color>) =
+            match &git_diff {
+                Some(d) => {
+                    let st = d.status.get(buf_row).copied().unwrap_or(LineStatus::Unchanged);
+                    match st {
+                        LineStatus::Added => ("│", git_added_style, git_added_tint),
+                        LineStatus::Modified => ("│", git_modified_style, git_modified_tint),
+                        LineStatus::Unchanged => {
+                            if d.deleted_before.contains(&buf_row) {
+                                ("_", git_removed_style, None)
+                            } else {
+                                (" ", Style::default(), None)
+                            }
+                        }
+                    }
+                }
+                None => (" ", Style::default(), None),
+            };
 
         // Diagnostic severity for line number coloring and gutter symbol
         let diag_severity = buf.file_path.as_ref().and_then(|p| {
@@ -243,6 +275,13 @@ pub fn render_editor(frame: &mut Frame, area: Rect, app: &mut App) {
             }
         }
 
+        // Git line tint: subtle background across the whole line
+        if let Some(bg) = git_tint {
+            for slot in style_map.iter_mut() {
+                *slot = slot.bg(bg);
+            }
+        }
+
         // Handle folded regions: show first line with fold summary, skip content
         if let Some(fs) = fold_state {
             if let Some(region) = fs.get_region_at_start(buf_row) {
@@ -256,6 +295,7 @@ pub fn render_editor(frame: &mut Frame, area: Rect, app: &mut App) {
                         width = (line_num_width as usize).saturating_sub(1)
                     );
                     let mut spans = vec![
+                        Span::styled(git_symbol, git_symbol_style),
                         Span::styled(diag_symbol, diag_symbol_style),
                         Span::styled(line_num, line_num_style),
                     ];
@@ -321,6 +361,8 @@ pub fn render_editor(frame: &mut Frame, area: Rect, app: &mut App) {
 
             // Line number on first chunk, blank gutter on continuations
             if chunk_idx == 0 {
+                // Git change marker
+                spans.push(Span::styled(git_symbol, git_symbol_style));
                 // Diagnostic gutter symbol
                 spans.push(Span::styled(diag_symbol, diag_symbol_style));
                 // Fold indicator
